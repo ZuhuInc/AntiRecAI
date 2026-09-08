@@ -182,13 +182,12 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(10, 11, 14, 0.96);
-      backdrop-filter: blur(8px);
+      background: rgba(10, 11, 14, 0.98);
+      backdrop-filter: blur(10px);
       z-index: 1000;
-      padding: 16px;
+      padding: 14px 16px 12px 16px;
       flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
+      overflow: hidden;
       -webkit-app-region: no-drag;
     }
 
@@ -202,6 +201,54 @@
       align-items: center;
       padding-bottom: 8px;
       border-bottom: 1px solid var(--border-color);
+      flex: none;
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 10px 4px 10px 0;
+      margin-right: -4px;
+    }
+
+    .modal-body::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .modal-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+    }
+
+    .modal-body::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .modal-footer-area {
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 8px;
+    }
+
+    .update-card {
+      background: rgba(234, 179, 8, 0.12);
+      border: 1px solid rgba(250, 204, 21, 0.5);
+      border-radius: 7px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.12);
     }
 
     .modal-title {
@@ -386,7 +433,7 @@
     }
 
     input:checked + .switch-slider {
-      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      background: #0284c7;
       border-color: rgba(56, 189, 248, 0.4);
     }
 
@@ -439,13 +486,23 @@
     }
 
     .btn.primary {
-      background: linear-gradient(135deg, #0284c7, #4f46e5);
-      border: none;
+      background: #0284c7;
+      border: 1px solid #0369a1;
       color: #fff;
     }
 
     .btn.primary:hover {
-      opacity: 0.9;
+      background: #0369a1;
+    }
+
+    .btn.warning {
+      background: #ca8a04;
+      border: 1px solid #a16207;
+      color: #fff;
+    }
+
+    .btn.warning:hover {
+      background: #a16207;
     }
   </style>
 </head>
@@ -547,85 +604,108 @@
       </button>
     </div>
 
-    <div class="setting-group">
-      <div class="switch-row">
-        <div>
-          <div class="setting-label" style="margin-bottom: 2px;">Anti-OBS Stealth Mode</div>
-          <div style="font-size: 11px; color: var(--text-muted);">Exclude overlay from OBS, Discord & recordings</div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="setting-antiobs" checked onchange="toggleAntiObs(this.checked)" />
-          <span class="switch-slider"></span>
-        </label>
-      </div>
-    </div>
-
-    <div class="setting-group">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <label class="setting-label">Window Opacity / Transparency</label>
-        <span class="slider-val-badge" id="opacity-badge">100%</span>
-      </div>
-      <div class="slider-container">
-        <input
-          type="range"
-          id="setting-opacity"
-          class="range-slider"
-          min="20"
-          max="100"
-          value="100"
-          oninput="updateOpacity(this.value)"
-        />
-      </div>
-    </div>
-
-    <div class="setting-group">
-      <label class="setting-label">Screenshot Hotkey Instruction Prompt</label>
-      <input type="text" id="setting-prompt" class="setting-input" value="Provide only a short, direct answer: " />
-    </div>
-
-    <div class="setting-group">
-      <label class="setting-label">Global Shortcuts (Keyboard or Mouse Buttons 3/4/5)</label>
-      <div class="hotkey-grid">
-        <div class="hotkey-row">
-          <span class="hotkey-title">Toggle Window</span>
-          <input type="text" class="hotkey-input" id="hotkey-toggle" readonly value="Ctrl+Shift+H" data-accelerator="CommandOrControl+Shift+H" />
-        </div>
-        <div class="hotkey-row">
-          <span class="hotkey-title">Snip & Solve</span>
-          <input type="text" class="hotkey-input" id="hotkey-snip" readonly value="Ctrl+Shift+S" data-accelerator="CommandOrControl+Shift+S" />
-        </div>
-        <div class="hotkey-row">
-          <span class="hotkey-title">Emergency Exit</span>
-          <input type="text" class="hotkey-input" id="hotkey-exit" readonly value="Ctrl+Shift+End" data-accelerator="CommandOrControl+Shift+End" />
+    <!-- Scrollable Settings Body -->
+    <div class="modal-body">
+      <div class="setting-group">
+        <div class="switch-row">
+          <div>
+            <div class="setting-label" style="margin-bottom: 2px;">Anti-OBS Stealth Mode</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Exclude overlay from OBS, Discord & recordings</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-antiobs" checked onchange="toggleAntiObs(this.checked)" />
+            <span class="switch-slider"></span>
+          </label>
         </div>
       </div>
-    </div>
 
-    <div class="setting-group">
-      <label class="setting-label">Custom Service URL</label>
-      <div style="display: flex; gap: 6px;">
-        <input type="text" id="setting-custom-url" class="setting-input" style="flex: 1;" placeholder="https://..." />
-        <button class="btn primary" style="flex: none; padding: 0 14px;" onclick="loadCustomUrl()">Go</button>
+      <div class="setting-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="setting-label">Window Opacity / Transparency</label>
+          <span class="slider-val-badge" id="opacity-badge">100%</span>
+        </div>
+        <div class="slider-container">
+          <input
+            type="range"
+            id="setting-opacity"
+            class="range-slider"
+            min="20"
+            max="100"
+            value="100"
+            oninput="updateOpacity(this.value)"
+          />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Screenshot Hotkey Instruction Prompt</label>
+        <input type="text" id="setting-prompt" class="setting-input" value="Provide only a short, direct answer: " />
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Global Shortcuts (Keyboard or Mouse Buttons 3/4/5)</label>
+        <div class="hotkey-grid">
+          <div class="hotkey-row">
+            <span class="hotkey-title">Toggle Window</span>
+            <input type="text" class="hotkey-input" id="hotkey-toggle" readonly value="Ctrl+Shift+H" data-accelerator="CommandOrControl+Shift+H" />
+          </div>
+          <div class="hotkey-row">
+            <span class="hotkey-title">Snip & Solve</span>
+            <input type="text" class="hotkey-input" id="hotkey-snip" readonly value="Ctrl+Shift+S" data-accelerator="CommandOrControl+Shift+S" />
+          </div>
+          <div class="hotkey-row">
+            <span class="hotkey-title">Emergency Exit</span>
+            <input type="text" class="hotkey-input" id="hotkey-exit" readonly value="Ctrl+Shift+End" data-accelerator="CommandOrControl+Shift+End" />
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Custom Service URL</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="setting-custom-url" class="setting-input" style="flex: 1;" placeholder="https://..." />
+          <button class="btn primary" style="flex: none; padding: 0 14px;" onclick="loadCustomUrl()">Go</button>
+        </div>
       </div>
     </div>
 
-    <div class="info-card">
-      <strong>Stealth Screen Protection:</strong> Active (WDA_EXCLUDEFROMCAPTURE)<br>
-      • <strong>Hotkey Support:</strong> Supports keyboard combos & mouse buttons (Mouse4, Mouse5, Mouse3/Middle).<br>
-      • <strong>Emergency Exit:</strong> Terminate AntiRecAI instantly anytime.
-    </div>
-
-    <div class="btn-row">
-      <button class="btn danger" onclick="clearSessionAndSignOut()">Clear Cache & Sign Out</button>
-      <button class="btn primary" onclick="saveSettings()">Save & Close</button>
-    </div>
-
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; color: var(--text-muted);">
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
-        <span id="app-version-label">AntiRecAI v1.0.0</span>
+    <!-- Pinned Bottom Footer Area -->
+    <div class="modal-footer-area">
+      <!-- Blue Screen Protection Notify Card -->
+      <div class="info-card">
+        <strong>Stealth Screen Protection:</strong> Active (WDA_EXCLUDEFROMCAPTURE)<br>
+        • <strong>Hotkey Support:</strong> Supports keyboard combos & mouse buttons (Mouse4, Mouse5, Mouse3/Middle).<br>
+        • <strong>Emergency Exit:</strong> Terminate AntiRecAI instantly anytime.
       </div>
-      <span style="color: var(--accent-cyan); font-weight: 600; letter-spacing: 0.3px;">Official Release</span>
+
+      <!-- Yellow Update Available Notification Banner (Under info card) -->
+      <div id="update-notify-card" class="update-card" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #eab308; box-shadow: 0 0 6px #eab308;"></span>
+          <div>
+            <div id="update-version-title" style="font-size: 11.5px; font-weight: 700; color: #fef08a;">Update Available</div>
+            <div id="update-version-sub" style="font-size: 10.5px; color: #fef9c3;">Click to view latest release</div>
+          </div>
+        </div>
+        <button class="btn warning" onclick="openUpdateRelease()" style="flex: none; padding: 4px 12px; font-size: 11px;">View Update</button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="btn-row">
+        <button class="btn danger" onclick="clearSessionAndSignOut()">Clear Cache & Sign Out</button>
+        <button class="btn primary" onclick="saveSettings()">Save & Close</button>
+      </div>
+
+      <!-- Bottom Status & Version Line -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; color: var(--text-muted);">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span id="version-status-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
+          <span id="app-version-label">AntiRecAI v1.0.0</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="app-status-badge" style="color: var(--accent-cyan); font-weight: 600; letter-spacing: 0.3px; cursor: pointer;" onclick="checkVersionUpdates(true)" title="Click to check for updates">Check for updates</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -715,14 +795,12 @@
     function toggleSettingsModal() {
       const modal = document.getElementById('settings-modal');
       modal.classList.toggle('open');
-      if (modal.classList.contains('open')) {
-        if (window.antiRecAPI && window.antiRecAPI.onSettingsOpened) {
-          window.antiRecAPI.onSettingsOpened(true);
-        }
-      } else {
-        if (window.antiRecAPI && window.antiRecAPI.onSettingsOpened) {
-          window.antiRecAPI.onSettingsOpened(false);
-        }
+      const isOpen = modal.classList.contains('open');
+      if (window.antiRecAPI && window.antiRecAPI.onSettingsOpened) {
+        window.antiRecAPI.onSettingsOpened(isOpen);
+      }
+      if (isOpen) {
+        checkVersionUpdates(false);
       }
     }
 
@@ -967,6 +1045,71 @@
         window.antiRecAPI.onSiteChanged((site) => {
           switchSite(site);
         });
+      }
+
+      // Initial silent update check
+      setTimeout(() => {
+        checkVersionUpdates(false);
+      }, 1000);
+    }
+
+    let latestReleaseUrl = 'https://github.com/ZuhuInc/AntiRecAI/releases';
+
+    async function checkVersionUpdates(isManual = false) {
+      const statusBadge = document.getElementById('app-status-badge');
+      const updateCard = document.getElementById('update-notify-card');
+      const statusDot = document.getElementById('version-status-dot');
+
+      if (!statusBadge) return;
+
+      if (isManual) {
+        statusBadge.innerText = 'Checking...';
+      }
+
+      if (window.antiRecAPI && window.antiRecAPI.checkUpdate) {
+        try {
+          const res = await window.antiRecAPI.checkUpdate();
+          if (res && res.success) {
+            if (res.hasUpdate) {
+              latestReleaseUrl = res.releaseUrl || 'https://github.com/ZuhuInc/AntiRecAI/releases/latest';
+              const titleEl = document.getElementById('update-version-title');
+              const subEl = document.getElementById('update-version-sub');
+              if (titleEl) titleEl.innerText = `Update Available: ${res.latestVersion}`;
+              if (subEl) subEl.innerText = `Current: v${res.currentVersion} • New: ${res.latestVersion}`;
+              if (updateCard) updateCard.style.display = 'flex';
+
+              statusBadge.innerText = `Update ${res.latestVersion} available!`;
+              statusBadge.style.color = '#eab308';
+              if (statusDot) {
+                statusDot.style.background = '#eab308';
+                statusDot.style.boxShadow = '0 0 6px #eab308';
+              }
+            } else {
+              if (updateCard) updateCard.style.display = 'none';
+              statusBadge.innerText = 'Up to date';
+              statusBadge.style.color = '#10b981';
+              if (statusDot) {
+                statusDot.style.background = '#10b981';
+                statusDot.style.boxShadow = '0 0 6px #10b981';
+              }
+            }
+          } else {
+            if (isManual) {
+              statusBadge.innerText = 'Up to date';
+            }
+          }
+        } catch (e) {
+          console.warn('Update check failed:', e);
+          if (isManual) statusBadge.innerText = 'Check for updates';
+        }
+      }
+    }
+
+    function openUpdateRelease() {
+      if (window.antiRecAPI && window.antiRecAPI.openExternal) {
+        window.antiRecAPI.openExternal(latestReleaseUrl);
+      } else {
+        window.open(latestReleaseUrl, '_blank');
       }
     }
   </script>

@@ -9,7 +9,8 @@ const {
   nativeImage,
   ipcMain,
   session,
-  screen
+  screen,
+  shell
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -743,6 +744,18 @@ function registerShortcuts() {
   setupTray();
 }
 
+function compareVersions(v1, v2) {
+  const parts1 = (v1 || '').split('.').map(n => parseInt(n, 10) || 0);
+  const parts2 = (v2 || '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
 /**
  * IPC Communication with Header UI
  */
@@ -753,6 +766,45 @@ function setupIpcHandlers() {
 
   ipcMain.handle('app-get-version', () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('app-check-update', async () => {
+    const currentVersion = app.getVersion();
+    try {
+      const response = await fetch('https://api.github.com/repos/ZuhuInc/AntiRecAI/releases/latest', {
+        headers: {
+          'User-Agent': 'AntiRecAI-App',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      if (!response.ok) {
+        return { success: false, currentVersion, message: 'No releases found' };
+      }
+      const data = await response.json();
+      const latestTag = data.tag_name ? data.tag_name.replace(/^v/i, '').trim() : '';
+      const cleanCurrent = currentVersion.replace(/^v/i, '').trim();
+
+      const isNewer = compareVersions(latestTag, cleanCurrent) > 0;
+
+      return {
+        success: true,
+        currentVersion,
+        latestVersion: data.tag_name || latestTag,
+        hasUpdate: isNewer,
+        releaseUrl: data.html_url || 'https://github.com/ZuhuInc/AntiRecAI/releases/latest',
+        releaseName: data.name || data.tag_name,
+        releaseNotes: data.body || ''
+      };
+    } catch (err) {
+      console.warn('[AntiRecAI] Failed checking updates:', err.message);
+      return { success: false, currentVersion, error: err.message };
+    }
+  });
+
+  ipcMain.on('app-open-external', (_event, url) => {
+    if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url);
+    }
   });
 
   ipcMain.on('app-save-settings', (_event, newSettings) => {

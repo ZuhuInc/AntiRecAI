@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('antiRecAPI', {
   saveSettings: (settings) => ipcRenderer.send('app-save-settings', settings),
   getSettings: () => ipcRenderer.invoke('app-get-settings'),
   getVersion: () => ipcRenderer.invoke('app-get-version'),
+  checkUpdate: () => ipcRenderer.invoke('app-check-update'),
+  openExternal: (url) => ipcRenderer.send('app-open-external', url),
   onSettingsOpened: (isOpen) => ipcRenderer.send('app-settings-opened', isOpen),
   onSiteChanged: (callback) => ipcRenderer.on('site-changed', (_event, site) => callback(site)),
   onInitialSettings: (callback) => ipcRenderer.on('initial-settings', (_event, settings) => callback(settings))
