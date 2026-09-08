@@ -136,4 +136,4 @@ All settings can be customized directly in the UI via the **Settings** panel:
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License with Commons Clause Condition v1.0](LICENSE).
