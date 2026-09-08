@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AntiRecAI</title>
+  <style>
+    :root {
+      --bg-header: #121316;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #e6edf3;
+      --text-muted: #8b949e;
+      --accent-cyan: #38bdf8;
+      --accent-hover: rgba(255, 255, 255, 0.08);
+      --danger-hover: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg-header);
+      color: var(--text-main);
+      height: 40px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* --- Draggable Top Bar --- */
+    .titlebar {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 14px;
+      -webkit-app-region: drag; /* Window can be dragged by topbar */
+    }
+
+    /* --- Left Group: Brand Text + AI Icon Tabs --- */
+    .left-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-name {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: #e6edf3; /* Solid clean text, no gradient */
+    }
+
+    .ai-tabs {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      -webkit-app-region: no-drag;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 3px;
+      border-radius: 7px;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      width: 28px;
+      height: 25px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      opacity: 0.55;
+    }
+
+    .tab-btn img {
+      width: 15px;
+      height: 15px;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .tab-btn:hover {
+      opacity: 0.9;
+      background: var(--accent-hover);
+    }
+
+    .tab-btn.active {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .tab-btn.gemini.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.2));
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .tab-btn.chatgpt.active {
+      background: rgba(16, 163, 127, 0.2);
+      border-color: rgba(16, 163, 127, 0.4);
+    }
+
+    .tab-btn.claude.active {
+      background: rgba(217, 119, 6, 0.2);
+      border-color: rgba(217, 119, 6, 0.4);
+    }
+
+    .tab-btn.custom {
+      color: var(--accent-cyan);
+    }
+
+    .tab-btn.custom.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    /* --- Draggable Spacer in Middle --- */
+    .drag-spacer {
+      flex: 1;
+      height: 100%;
+      -webkit-app-region: drag;
+    }
+
+    /* --- Right Group: Action Buttons --- */
+    .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      -webkit-app-region: no-drag;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .icon-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .icon-btn:hover {
+      background: var(--accent-hover);
+      color: var(--text-main);
+    }
+
+    .icon-btn.pin.active {
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.15);
+    }
+
+    .icon-btn.close:hover {
+      background: var(--danger-hover);
+      color: #fff;
+    }
+
+    /* --- Settings Modal --- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 40px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(10, 11, 14, 0.96);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      padding: 16px;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .modal-title svg {
+      width: 15px;
+      height: 15px;
+      color: var(--accent-cyan);
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .setting-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .setting-input {
+      background: #1b1c21;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #fff;
+      font-size: 12.5px;
+      outline: none;
+      transition: border 0.15s ease;
+    }
+
+    .setting-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Range Slider */
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: #272a34;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+      transition: transform 0.1s ease;
+    }
+
+    .range-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .slider-val-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      min-width: 38px;
+      text-align: right;
+    }
+
+    /* Hotkey Grid */
+    .hotkey-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hotkey-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #18191e;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+
+    .hotkey-title {
+      font-size: 12px;
+      color: var(--text-main);
+    }
+
+    .hotkey-input {
+      background: #22242c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      color: var(--accent-cyan);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 8px;
+      text-align: center;
+      cursor: pointer;
+      width: 145px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .hotkey-input:hover {
+      border-color: var(--accent-cyan);
+    }
+
+    .hotkey-input.recording {
+      border-color: #f59e0b;
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.15);
+    }
+
+    /* Switch Toggle */
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #18191e;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #272a34;
+      transition: .2s;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #8e95a5;
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .switch-slider {
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    input:checked + .switch-slider:before {
+      transform: translateX(16px);
+      background-color: #fff;
+    }
+
+    .info-card {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #bae6fd;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      background: #23252b;
+      color: var(--text-main);
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: #2c2f37;
+    }
+
+    .btn.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    .btn.danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      border: none;
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <!-- Left Group: Solid Brand Text + Left-Aligned Icon Tabs -->
+    <div class="left-group">
+      <span class="brand-name">AntiRecAI</span>
+
+      <div class="ai-tabs">
+        <!-- Gemini Icon Button -->
+        <button class="tab-btn gemini active" id="tab-gemini" title="Google Gemini" onclick="switchSite('gemini')">
+          <img src="assets/gemini.svg" alt="Gemini" />
+        </button>
+
+        <!-- ChatGPT Icon Button -->
+        <button class="tab-btn chatgpt" id="tab-chatgpt" title="ChatGPT" onclick="switchSite('chatgpt')">
+          <img src="assets/chatgpt.svg" alt="ChatGPT" />
+        </button>
+
+        <!-- Claude Icon Button -->
+        <button class="tab-btn claude" id="tab-claude" title="Claude" onclick="switchSite('claude')">
+          <img src="assets/claude.svg" alt="Claude" />
+        </button>
+
+        <!-- Custom Service Button (Placed on the right of Claude) -->
+        <button class="tab-btn custom" id="tab-custom" title="Custom Service" onclick="switchSite('custom')" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center Drag Spacer -->
+    <div class="drag-spacer"></div>
+
+    <!-- Right Group: Action & Window Controls -->
+    <div class="controls-right">
+      <!-- Reload Button -->
+      <button class="icon-btn" id="btn-reload" title="Reload Active Page" onclick="reloadActivePage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 4v6h-6"/>
+          <path d="M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+
+      <!-- Pin Button -->
+      <button class="icon-btn pin active" id="btn-pin" title="Toggle Always On Top" onclick="togglePin()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="17" x2="12" y2="22"/>
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24V17z"/>
+        </svg>
+      </button>
+
+      <!-- Settings Button -->
+      <button class="icon-btn" id="btn-settings" title="Settings" onclick="toggleSettingsModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+
+      <!-- Minimize Button -->
+      <button class="icon-btn" id="btn-minimize" title="Minimize" onclick="minimizeWindow()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+
+      <!-- Close / Hide to Tray Button -->
+      <button class="icon-btn close" id="btn-close" title="Hide to Tray" onclick="hideToTray()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Overlay Panel -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-header">
+      <span class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Settings
+      </span>
+      <button class="icon-btn" onclick="toggleSettingsModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="setting-group">
+      <div class="switch-row">
+        <div>
+          <div class="setting-label" style="margin-bottom: 2px;">Anti-OBS Stealth Mode</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Exclude overlay from OBS, Discord & recordings</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="setting-antiobs" checked onchange="toggleAntiObs(this.checked)" />
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <label class="setting-label">Window Opacity / Transparency</label>
+        <span class="slider-val-badge" id="opacity-badge">100%</span>
+      </div>
+      <div class="slider-container">
+        <input
+          type="range"
+          id="setting-opacity"
+          class="range-slider"
+          min="20"
+          max="100"
+          value="100"
+          oninput="updateOpacity(this.value)"
+        />
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Screenshot Hotkey Instruction Prompt</label>
+      <input type="text" id="setting-prompt" class="setting-input" value="Provide only a short, direct answer: " />
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Global Shortcuts (Keyboard or Mouse Buttons 3/4/5)</label>
+      <div class="hotkey-grid">
+        <div class="hotkey-row">
+          <span class="hotkey-title">Toggle Window</span>
+          <input type="text" class="hotkey-input" id="hotkey-toggle" readonly value="Ctrl+Shift+H" data-accelerator="CommandOrControl+Shift+H" />
+        </div>
+        <div class="hotkey-row">
+          <span class="hotkey-title">Snip & Solve</span>
+          <input type="text" class="hotkey-input" id="hotkey-snip" readonly value="Ctrl+Shift+S" data-accelerator="CommandOrControl+Shift+S" />
+        </div>
+        <div class="hotkey-row">
+          <span class="hotkey-title">Emergency Exit</span>
+          <input type="text" class="hotkey-input" id="hotkey-exit" readonly value="Ctrl+Shift+End" data-accelerator="CommandOrControl+Shift+End" />
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label class="setting-label">Custom Service URL</label>
+      <div style="display: flex; gap: 6px;">
+        <input type="text" id="setting-custom-url" class="setting-input" style="flex: 1;" placeholder="https://..." />
+        <button class="btn primary" style="flex: none; padding: 0 14px;" onclick="loadCustomUrl()">Go</button>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <strong>Stealth Screen Protection:</strong> Active (WDA_EXCLUDEFROMCAPTURE)<br>
+      • <strong>Hotkey Support:</strong> Supports keyboard combos & mouse buttons (Mouse4, Mouse5, Mouse3/Middle).<br>
+      • <strong>Emergency Exit:</strong> Terminate AntiRecAI instantly anytime.
+    </div>
+
+    <div class="btn-row">
+      <button class="btn danger" onclick="clearSessionAndSignOut()">Clear Cache & Sign Out</button>
+      <button class="btn primary" onclick="saveSettings()">Save & Close</button>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; color: var(--text-muted);">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
+        <span id="app-version-label">AntiRecAI v1.0.0</span>
+      </div>
+      <span style="color: var(--accent-cyan); font-weight: 600; letter-spacing: 0.3px;">Official Release</span>
+    </div>
+  </div>
+
+  <script>
+    let isPinned = true;
+    let currentSite = 'gemini';
+
+    const sites = {
+      gemini: 'https://gemini.google.com/app',
+      chatgpt: 'https://chatgpt.com/',
+      claude: 'https://claude.ai/new',
+      custom: ''
+    };
+
+    function switchSite(siteKey) {
+      currentSite = siteKey;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeTab = document.getElementById(`tab-${siteKey}`);
+      if (activeTab) activeTab.classList.add('active');
+
+      const targetUrl = sites[siteKey];
+      if (targetUrl && window.antiRecAPI && window.antiRecAPI.navigate) {
+        window.antiRecAPI.navigate(targetUrl);
+      }
+    }
+
+    function setCustomService(url) {
+      const customBtn = document.getElementById('tab-custom');
+      const input = document.getElementById('setting-custom-url');
+
+      if (!url || !url.trim()) {
+        sites.custom = '';
+        if (customBtn) customBtn.style.display = 'none';
+        if (input) input.value = '';
+        return;
+      }
+
+      let cleanUrl = url.trim();
+      if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        cleanUrl = 'https://' + cleanUrl;
+      }
+
+      sites.custom = cleanUrl;
+      if (input) input.value = cleanUrl;
+
+      if (customBtn) {
+        try {
+          const domain = new URL(cleanUrl).hostname;
+          customBtn.title = 'Custom: ' + domain;
+        } catch (e) {
+          customBtn.title = 'Custom: ' + cleanUrl;
+        }
+        customBtn.style.display = 'flex'; // Appears on right of Claude
+      }
+
+      if (window.antiRecAPI && window.antiRecAPI.saveSettings) {
+        window.antiRecAPI.saveSettings({ customServiceUrl: cleanUrl });
+      }
+    }
+
+    function loadCustomUrl() {
+      const url = document.getElementById('setting-custom-url').value.trim();
+      if (url) {
+        setCustomService(url);
+        switchSite('custom');
+        toggleSettingsModal();
+      } else {
+        setCustomService('');
+      }
+    }
+
+    function reloadActivePage() {
+      if (window.antiRecAPI && window.antiRecAPI.reload) {
+        window.antiRecAPI.reload();
+      }
+    }
+
+    function togglePin() {
+      isPinned = !isPinned;
+      const btn = document.getElementById('btn-pin');
+      btn.classList.toggle('active', isPinned);
+      if (window.antiRecAPI && window.antiRecAPI.setAlwaysOnTop) {
+        window.antiRecAPI.setAlwaysOnTop(isPinned);
+      }
+    }
+
+    function toggleSettingsModal() {
+      const modal = document.getElementById('settings-modal');
+      modal.classList.toggle('open');
+      if (modal.classList.contains('open')) {
+        if (window.antiRecAPI && window.antiRecAPI.onSettingsOpened) {
+          window.antiRecAPI.onSettingsOpened(true);
+        }
+      } else {
+        if (window.antiRecAPI && window.antiRecAPI.onSettingsOpened) {
+          window.antiRecAPI.onSettingsOpened(false);
+        }
+      }
+    }
+
+    function updateOpacity(val) {
+      document.getElementById('opacity-badge').innerText = val + '%';
+      if (window.antiRecAPI && window.antiRecAPI.setOpacity) {
+        window.antiRecAPI.setOpacity(val / 100);
+      }
+    }
+
+    function toggleAntiObs(checked) {
+      if (window.antiRecAPI && window.antiRecAPI.setAntiObs) {
+        window.antiRecAPI.setAntiObs(checked);
+      }
+    }
+
+    let activeRecorderInput = null;
+
+    function setupHotkeyRecorder(inputId, defaultAccelerator) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+
+      el.addEventListener('focus', () => {
+        activeRecorderInput = el;
+        el.dataset.prevVal = el.value;
+        el.value = 'Press key or mouse button...';
+        el.classList.add('recording');
+      });
+
+      el.addEventListener('blur', () => {
+        setTimeout(() => {
+          if (activeRecorderInput === el) {
+            activeRecorderInput = null;
+          }
+          el.classList.remove('recording');
+          if (el.value === 'Press key or mouse button...') {
+            el.value = el.dataset.prevVal || defaultAccelerator.replace('CommandOrControl', 'Ctrl');
+          }
+        }, 120);
+      });
+
+      el.addEventListener('keydown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ignore modifier-only key presses
+        if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+          return;
+        }
+
+        const parts = [];
+        if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+        if (e.altKey) parts.push('Alt');
+        if (e.shiftKey) parts.push('Shift');
+
+        let key = e.key;
+        if (key === ' ') key = 'Space';
+        else if (key.length === 1) key = key.toUpperCase();
+        else if (key.startsWith('Arrow')) key = key.replace('Arrow', '');
+
+        parts.push(key);
+        const displayKey = parts.join('+');
+        const accelerator = displayKey.replace('Ctrl', 'CommandOrControl');
+
+        el.value = displayKey;
+        el.dataset.accelerator = accelerator;
+        activeRecorderInput = null;
+        el.blur();
+      });
+    }
+
+    // Global listener to capture Mouse Buttons (Mouse 3/Middle, Mouse 4, Mouse 5, Right Click)
+    window.addEventListener('mousedown', (e) => {
+      if (!activeRecorderInput) return;
+
+      // Pure left click on the active input or clicking away to blur
+      if (e.button === 0 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      let btnName = '';
+      if (e.button === 1) btnName = 'Mouse3';
+      else if (e.button === 2) btnName = 'RightClick';
+      else if (e.button === 3) btnName = 'Mouse4';
+      else if (e.button === 4) btnName = 'Mouse5';
+      else if (e.button === 0) btnName = 'LeftClick';
+
+      if (!btnName) return;
+
+      const parts = [];
+      if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      parts.push(btnName);
+
+      const displayKey = parts.join('+');
+      const accelerator = displayKey.replace('Ctrl', 'CommandOrControl');
+
+      activeRecorderInput.value = displayKey;
+      activeRecorderInput.dataset.accelerator = accelerator;
+      const targetEl = activeRecorderInput;
+      activeRecorderInput = null;
+      targetEl.blur();
+    }, true);
+
+    // Prevent context menu and browser navigation while recording
+    window.addEventListener('contextmenu', (e) => {
+      if (activeRecorderInput) {
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('auxclick', (e) => {
+      if (activeRecorderInput) {
+        e.preventDefault();
+      }
+    });
+
+    function saveSettings() {
+      const prompt = document.getElementById('setting-prompt').value;
+      const customUrl = document.getElementById('setting-custom-url').value.trim();
+
+      const toggleAcc = document.getElementById('hotkey-toggle').dataset.accelerator || 'CommandOrControl+Shift+H';
+      const snipAcc = document.getElementById('hotkey-snip').dataset.accelerator || 'CommandOrControl+Shift+S';
+      const exitAcc = document.getElementById('hotkey-exit').dataset.accelerator || 'CommandOrControl+Shift+End';
+
+      const payload = {
+        customPrompt: prompt,
+        hotkeys: {
+          toggle: toggleAcc,
+          snip: snipAcc,
+          exit: exitAcc
+        }
+      };
+
+      if (customUrl) {
+        setCustomService(customUrl);
+        payload.customServiceUrl = customUrl;
+      } else {
+        setCustomService('');
+        payload.customServiceUrl = '';
+      }
+
+      if (window.antiRecAPI && window.antiRecAPI.saveSettings) {
+        window.antiRecAPI.saveSettings(payload);
+      }
+
+      toggleSettingsModal();
+    }
+
+    function clearSessionAndSignOut() {
+      if (confirm('Clear all stored cookies and session data? You will need to sign in again.')) {
+        if (window.antiRecAPI && window.antiRecAPI.clearSession) {
+          window.antiRecAPI.clearSession();
+        }
+      }
+    }
+
+    function minimizeWindow() {
+      if (window.antiRecAPI && window.antiRecAPI.minimize) {
+        window.antiRecAPI.minimize();
+      }
+    }
+
+    function hideToTray() {
+      if (window.antiRecAPI && window.antiRecAPI.hide) {
+        window.antiRecAPI.hide();
+      }
+    }
+
+    function applySettingsToUI(settings) {
+      if (!settings) return;
+      if (settings.customPrompt) {
+        document.getElementById('setting-prompt').value = settings.customPrompt;
+      }
+      if (typeof settings.opacity === 'number') {
+        const pct = Math.round(settings.opacity * 100);
+        document.getElementById('setting-opacity').value = pct;
+        document.getElementById('opacity-badge').innerText = pct + '%';
+      }
+      if (typeof settings.alwaysOnTop === 'boolean') {
+        isPinned = settings.alwaysOnTop;
+        document.getElementById('btn-pin').classList.toggle('active', isPinned);
+      }
+      if (typeof settings.antiObs === 'boolean') {
+        const obsCheck = document.getElementById('setting-antiobs');
+        if (obsCheck) obsCheck.checked = settings.antiObs;
+      }
+      if (settings.customServiceUrl) {
+        setCustomService(settings.customServiceUrl);
+      }
+      if (settings.hotkeys) {
+        if (settings.hotkeys.toggle) {
+          const el = document.getElementById('hotkey-toggle');
+          el.dataset.accelerator = settings.hotkeys.toggle;
+          el.value = settings.hotkeys.toggle.replace('CommandOrControl', 'Ctrl');
+        }
+        if (settings.hotkeys.snip) {
+          const el = document.getElementById('hotkey-snip');
+          el.dataset.accelerator = settings.hotkeys.snip;
+          el.value = settings.hotkeys.snip.replace('CommandOrControl', 'Ctrl');
+        }
+        if (settings.hotkeys.exit) {
+          const el = document.getElementById('hotkey-exit');
+          el.dataset.accelerator = settings.hotkeys.exit;
+          el.value = settings.hotkeys.exit.replace('CommandOrControl', 'Ctrl');
+        }
+      }
+      if (settings.activeSite) {
+        currentSite = settings.activeSite;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        const activeTab = document.getElementById(`tab-${settings.activeSite}`);
+        if (activeTab) activeTab.classList.add('active');
+      }
+    }
+
+    // Initialize keybind recorders
+    setupHotkeyRecorder('hotkey-toggle', 'CommandOrControl+Shift+H');
+    setupHotkeyRecorder('hotkey-snip', 'CommandOrControl+Shift+S');
+    setupHotkeyRecorder('hotkey-exit', 'CommandOrControl+Shift+End');
+
+    // Hydrate settings on startup
+    if (window.antiRecAPI) {
+      if (window.antiRecAPI.getSettings) {
+        window.antiRecAPI.getSettings().then(applySettingsToUI);
+      }
+      if (window.antiRecAPI.onInitialSettings) {
+        window.antiRecAPI.onInitialSettings(applySettingsToUI);
+      }
+      if (window.antiRecAPI.getVersion) {
+        window.antiRecAPI.getVersion().then((ver) => {
+          if (ver) {
+            const verEl = document.getElementById('app-version-label');
+            if (verEl) verEl.innerText = `AntiRecAI v${ver}`;
+          }
+        });
+      }
+      if (window.antiRecAPI.onSiteChanged) {
+        window.antiRecAPI.onSiteChanged((site) => {
+          switchSite(site);
+        });
+      }
+    }
+  </script>
+</body>
+</html>
