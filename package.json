@@ -1,6 +1,6 @@
 {
   "name": "antirecai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Stealth overlay for Gemini, ChatGPT & Claude with OBS capture exclusion",
   "main": "main.js",
   "scripts": {

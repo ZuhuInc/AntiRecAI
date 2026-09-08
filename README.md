@@ -80,13 +80,13 @@ npm run build:all
   ```bash
   npm run build:portable
   ```
-  *Output: `dist/AntiRecAI-Portable-1.0.0.exe` (Zero installation required, run from anywhere).*
+  *Output: `dist/AntiRecAI-Portable-1.0.1.exe` (Zero installation required, run from anywhere).*
 
 - **Windows Setup Installer**:
   ```bash
   npm run build:installer
   ```
-  *Output: `dist/AntiRecAI Setup 1.0.0.exe` (Full NSIS installer with desktop and Start Menu shortcuts).*
+  *Output: `dist/AntiRecAI Setup 1.0.1.exe` (Full NSIS installer with desktop and Start Menu shortcuts).*
 
 ---
 

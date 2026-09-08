@@ -111,6 +111,7 @@ if (!gotTheLock) {
 /**
  * Apply WDA_EXCLUDEFROMCAPTURE to root and all child HWNDs
  */
+let lastLoggedAffinity = null;
 function applyScreenProtection(win, enable = null) {
   if (!win || win.isDestroyed()) return;
 
@@ -137,16 +138,63 @@ function applyScreenProtection(win, enable = null) {
 
       if (EnumChildWindows) {
         const enumCallback = (childHwnd) => {
-          SetWindowDisplayAffinity(childHwnd, affinity);
+          try {
+            SetWindowDisplayAffinity(childHwnd, affinity);
+          } catch (e) {}
           return true;
         };
         EnumChildWindows(hwnd, enumCallback, 0);
       }
-      console.log(`[AntiRecAI] Anti-OBS mode: ${isEnabled ? 'ENABLED (Hidden)' : 'DISABLED (Visible)'}`);
+
+      if (lastLoggedAffinity !== isEnabled) {
+        lastLoggedAffinity = isEnabled;
+        console.log(`[AntiRecAI] Anti-OBS mode: ${isEnabled ? 'ENABLED (Hidden)' : 'DISABLED (Visible)'}`);
+      }
     } catch (err) {
       console.error('[AntiRecAI] Failed applying native display affinity:', err);
     }
   }
+}
+
+/**
+ * Safely reveal window with zero OBS / Discord capture frame leaks
+ */
+function showWindowSafely(win) {
+  if (!win || win.isDestroyed()) return;
+
+  const targetOpacity = typeof userSettings.opacity === 'number' ? userSettings.opacity : 1.0;
+
+  // 1. Force 0 opacity so DXGI Desktop Duplication cannot capture any pixels during DWM surface initialization
+  try {
+    win.setOpacity(0);
+  } catch (e) {}
+
+  // 2. Force native display affinity BEFORE the window is presented to DWM/compositor
+  applyScreenProtection(win);
+  win.show();
+  win.focus();
+
+  // 3. Immediate re-assertion for any newly composited surfaces
+  applyScreenProtection(win);
+
+  // 4. Restore visible opacity after DWM locks WDA_EXCLUDEFROMCAPTURE (~75ms)
+  setTimeout(() => {
+    if (win && !win.isDestroyed() && win.isVisible()) {
+      applyScreenProtection(win);
+      win.setOpacity(targetOpacity);
+    }
+  }, 75);
+}
+
+/**
+ * Safely hide window and reset opacity to 0 to prevent stale frame capture
+ */
+function hideWindowSafely(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.setOpacity(0);
+  } catch (e) {}
+  win.hide();
 }
 
 /**
@@ -324,8 +372,16 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Reapply screen protection on all window events
+  // Reapply screen protection on all window & view lifecycle events
   applyScreenProtection(mainWindow);
+
+  aiView.webContents.on('dom-ready', () => {
+    applyScreenProtection(mainWindow);
+  });
+
+  aiView.webContents.on('did-finish-load', () => {
+    applyScreenProtection(mainWindow);
+  });
 
   mainWindow.once('ready-to-show', () => {
     applyScreenProtection(mainWindow);
@@ -363,7 +419,7 @@ function createWindow() {
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();
-      mainWindow.hide();
+      hideWindowSafely(mainWindow);
     }
     return false;
   });
@@ -473,11 +529,9 @@ function toggleWindowVisibility() {
   if (!mainWindow) return;
 
   if (mainWindow.isVisible()) {
-    mainWindow.hide();
+    hideWindowSafely(mainWindow);
   } else {
-    mainWindow.show();
-    mainWindow.focus();
-    applyScreenProtection(mainWindow);
+    showWindowSafely(mainWindow);
   }
 }
 
@@ -507,11 +561,12 @@ async function triggerScreenshotWorkflow() {
     console.log('[AntiRecAI] Screenshot copied to clipboard.');
 
     if (!mainWindow.isVisible()) {
-      mainWindow.show();
+      showWindowSafely(mainWindow);
+    } else {
+      mainWindow.focus();
+      mainWindow.moveTop();
+      applyScreenProtection(mainWindow);
     }
-    mainWindow.focus();
-    mainWindow.moveTop();
-    applyScreenProtection(mainWindow);
 
     if (!aiView || !aiView.webContents) return;
 
@@ -852,7 +907,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.on('app-hide', () => {
-    if (mainWindow) mainWindow.hide();
+    if (mainWindow) hideWindowSafely(mainWindow);
   });
 
   ipcMain.on('app-set-prompt', (_event, prompt) => {
@@ -914,9 +969,7 @@ app.whenReady().then(() => {
 app.on('second-instance', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-    applyScreenProtection(mainWindow);
+    showWindowSafely(mainWindow);
   }
 });
 
