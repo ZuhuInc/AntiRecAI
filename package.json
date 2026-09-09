@@ -59,6 +59,7 @@
       "icon": "assets/IconMain.png"
     },
     "nsis": {
+      "artifactName": "AntiRecAI-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
