@@ -22,12 +22,14 @@
 - **Hardware Screen Protection (`WDA_EXCLUDEFROMCAPTURE`)**: Uses low-level Windows DWM display affinity so the overlay is **100% visible and interactive to your physical eyes**, but renders completely transparent and invisible on OBS Studio, Discord screen shares, and video recordings.
 - **1-Click Screen Snip & Solve**: Press a single hotkey (such as `Ctrl+Shift+S`, `Mouse4`, or `Mouse5`) to automatically capture your display into memory, attach it to your active AI prompt, inject your custom instruction, and submit immediately.
 - **Stealth 2-Point Region Snip & Multi-Monitor Support**: Move your cursor to the top-left and press `Ctrl+1`, move to bottom-right and press `Ctrl+2` to silently lock a capture bounding box without showing visible boxes or UI traces on screen. Reset anytime with `Ctrl+Alt+R`. Multi-monitor aware—automatically targets the display your cursor or region rests on.
+- **Ghost Mode (Mouse Click-Through)**: Toggle click-through passthrough with `Ctrl+Alt+G` or the header ghost button. Allows you to click, type, and navigate background applications directly through the overlay without stealing window focus.
 - **Universal Multi-AI Switcher**: Switch seamlessly between **Google Gemini**, **ChatGPT**, **Claude**, or connect any **Custom AI Service URL** directly via the top navigation bar.
 - **Full Mouse Button & Keybind Customization**: Bind hotkeys to **Mouse 4**, **Mouse 5**, **Mouse 3 (Middle Click)**, or any keyboard combination with modifiers (`Ctrl`, `Alt`, `Shift`).
 - **Stealth Overlay Controls**:
   - **Smooth Opacity Slider** (20% – 100%).
   - **Anti-OBS Stealth Mode Switch** (instant enable / disable).
   - **Always-on-Top Window Pinning**.
+  - **Ghost Mode (Click-Through)**.
   - **Zero Taskbar Footprint** (runs discretely in the Windows notification area / System Tray).
 - **Persistent Workspace Authentication**: Dedicated partition storage (`persist:gemini_session`) keeps you logged into your Google, OpenAI, and Claude accounts across system restarts.
 
@@ -41,6 +43,7 @@ All shortcuts can be reconfigured inside the **Settings** panel:
 | :--- | :--- | :--- | :--- |
 | **Toggle Overlay** | `Ctrl + Shift + H` | `Mouse4` / `Mouse5` / `Mouse3` | Instantly shows or hides the overlay window. |
 | **Snip & Solve** | `Ctrl + Shift + S` | `Ctrl + Mouse4` / Custom | Captures active display/region to memory, attaches to prompt, types instruction, and submits. |
+| **Ghost Mode (Click-Through)** | `Ctrl + Alt + G` | `Mouse3` / `Mouse4` / Custom | Toggles mouse passthrough so clicks pass directly to windows behind the overlay. |
 | **Set Region Top-Left** | `Ctrl + 1` | `Mouse4` / Custom | Silently saves Point 1 at current cursor position (zero UI/audio). |
 | **Set Region Bottom-Right** | `Ctrl + 2` | `Mouse5` / Custom | Silently saves Point 2 at current cursor position (zero UI/audio). |
 | **Reset Region (Full Screen)** | `Ctrl + Alt + R` | `Ctrl + Mouse3` / Custom | Clears locked region and returns to full screen capture mode. |

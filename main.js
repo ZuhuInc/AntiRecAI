@@ -14,6 +14,7 @@ const {
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const screenshot = require('screenshot-desktop');
 const { autoUpdater } = require('electron-updater');
 
@@ -54,6 +55,7 @@ const DEFAULT_SETTINGS = {
   currentUrl: 'https://gemini.google.com/app',
   customServiceUrl: '',
   customPrompt: 'Provide only a short, direct answer: ',
+  snipMode: 'image', // 'image' | 'ocr'
   opacity: 1.0,
   alwaysOnTop: true,
   antiObs: true,
@@ -61,10 +63,11 @@ const DEFAULT_SETTINGS = {
   hotkeys: {
     toggle: 'CommandOrControl+Shift+H',
     snip: 'CommandOrControl+Shift+S',
-    exit: 'CommandOrControl+Shift+End',
+    ghost: 'CommandOrControl+Alt+G',
     setPoint1: 'CommandOrControl+1',
     setPoint2: 'CommandOrControl+2',
-    resetRegion: 'CommandOrControl+Alt+R'
+    resetRegion: 'CommandOrControl+Alt+R',
+    exit: 'CommandOrControl+Shift+End'
   }
 };
 
@@ -508,6 +511,7 @@ function setupTray() {
   const hotkeys = userSettings.hotkeys || DEFAULT_SETTINGS.hotkeys;
   const toggleLabel = (hotkeys.toggle || 'Ctrl+Shift+H').replace('CommandOrControl', 'Ctrl');
   const snipLabel = (hotkeys.snip || 'Ctrl+Shift+S').replace('CommandOrControl', 'Ctrl');
+  const ghostLabel = (hotkeys.ghost || 'Ctrl+Alt+G').replace('CommandOrControl', 'Ctrl');
   const p1Label = (hotkeys.setPoint1 || 'Ctrl+1').replace('CommandOrControl', 'Ctrl');
   const p2Label = (hotkeys.setPoint2 || 'Ctrl+2').replace('CommandOrControl', 'Ctrl');
   const resetLabel = (hotkeys.resetRegion || 'Ctrl+Alt+R').replace('CommandOrControl', 'Ctrl');
@@ -521,6 +525,14 @@ function setupTray() {
     {
       label: `Capture & Query (${snipLabel})`,
       click: () => triggerScreenshotWorkflow()
+    },
+    {
+      label: `Ghost Mode / Click-Through (${ghostLabel})`,
+      type: 'checkbox',
+      checked: isGhostMode,
+      click: (item) => {
+        setGhostMode(item.checked);
+      }
     },
     { type: 'separator' },
     {
@@ -626,6 +638,29 @@ function switchService(url, siteKey) {
   }
 }
 
+// --- Ghost Mode (Click-Through Passthrough) ---
+let isGhostMode = false;
+
+function setGhostMode(enabled) {
+  isGhostMode = !!enabled;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.setIgnoreMouseEvents(isGhostMode, { forward: true });
+      console.log(`[AntiRecAI] Ghost mode (click-through): ${isGhostMode ? 'ENABLED' : 'DISABLED'}`);
+    } catch (e) {
+      console.warn('[AntiRecAI] Failed setting ignoreMouseEvents:', e.message);
+    }
+    if (mainWindow.webContents) {
+      mainWindow.webContents.send('ghost-mode-changed', isGhostMode);
+    }
+  }
+  setupTray();
+}
+
+function toggleGhostMode() {
+  setGhostMode(!isGhostMode);
+}
+
 // --- Stealth Region Coordinates ---
 let savedRegion = {
   p1: null,
@@ -725,13 +760,171 @@ async function captureTargetDisplayOrRegion() {
 }
 
 /**
+ * In-Memory Fast Windows Native OCR Engine (WinRT Media.Ocr)
+ */
+const psOcrScript = `
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[Windows.Graphics.Imaging.BitmapDecoder, Windows.Foundation.UniversalApiContract, ContentType = WindowsRuntime] | Out-Null
+[Windows.Media.Ocr.OcrEngine, Windows.Foundation.UniversalApiContract, ContentType = WindowsRuntime] | Out-Null
+[Windows.Storage.Streams.InMemoryRandomAccessStream, Windows.Foundation.UniversalApiContract, ContentType = WindowsRuntime] | Out-Null
+
+$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1' })[0]
+function Await-Op($asyncOp, $type) {
+    $asTask = $asTaskGeneric.MakeGenericMethod($type)
+    $netTask = $asTask.Invoke($null, @($asyncOp))
+    $netTask.Wait(-1) | Out-Null
+    return $netTask.Result
+}
+
+$inputBase64 = [Console]::In.ReadToEnd()
+if ([string]::IsNullOrWhiteSpace($inputBase64)) { exit 0 }
+$bytes = [Convert]::FromBase64String($inputBase64.Trim())
+
+$ras = New-Object Windows.Storage.Streams.InMemoryRandomAccessStream
+$writer = New-Object Windows.Storage.Streams.DataWriter($ras)
+$writer.WriteBytes($bytes)
+$null = Await-Op ($writer.StoreAsync()) ([System.UInt32])
+$ras.Seek(0)
+
+$decoder = Await-Op ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($ras)) ([Windows.Graphics.Imaging.BitmapDecoder])
+$softwareBitmap = Await-Op ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+
+$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+if ($null -eq $engine) {
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new("en-US"))
+}
+
+$ocrResult = Await-Op ($engine.RecognizeAsync($softwareBitmap)) ([Windows.Media.Ocr.OcrResult])
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::Out.Write($ocrResult.Text)
+`;
+
+function performWindowsOcr(pngBuffer) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const ps = spawn('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psOcrScript], {
+      windowsHide: true
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    ps.stdout.on('data', data => { stdout += data.toString('utf8'); });
+    ps.stderr.on('data', data => { stderr += data.toString('utf8'); });
+
+    ps.on('close', code => {
+      console.log(`[AntiRecAI] Windows OCR completed in ${Date.now() - start}ms (exit code ${code})`);
+      if (code !== 0 && stderr) {
+        console.warn('[AntiRecAI] OCR stderr:', stderr);
+      }
+      resolve(stdout.trim());
+    });
+
+    ps.on('error', err => {
+      console.error('[AntiRecAI] OCR process spawn error:', err);
+      resolve('');
+    });
+
+    ps.stdin.write(pngBuffer.toString('base64'));
+    ps.stdin.end();
+  });
+}
+
+/**
  * Universal Multi-AI Prompt & Screenshot Injector
  */
 async function triggerScreenshotWorkflow() {
   try {
     console.log('[AntiRecAI] Capturing screen in memory...');
     const image = await captureTargetDisplayOrRegion();
+    const isOcrMode = userSettings.snipMode === 'ocr';
 
+    if (isOcrMode) {
+      console.log('[AntiRecAI] Running fast Windows native OCR on captured area...');
+      const ocrText = await performWindowsOcr(image.toPNG());
+      console.log(`[AntiRecAI] OCR Result (${ocrText.length} chars): ${ocrText.slice(0, 100)}...`);
+
+      if (ocrText) {
+        clipboard.writeText(ocrText);
+        console.log('[AntiRecAI] OCR text copied to clipboard.');
+      } else {
+        clipboard.writeImage(image);
+        console.log('[AntiRecAI] OCR returned no text; copied screenshot image to clipboard.');
+      }
+
+      if (!mainWindow.isVisible()) {
+        showWindowSafely(mainWindow);
+      } else {
+        mainWindow.focus();
+        mainWindow.moveTop();
+        applyScreenProtection(mainWindow);
+      }
+
+      if (!aiView || !aiView.webContents) return;
+
+      const basePrompt = (userSettings.customPrompt || '').trim();
+      const textToInject = ocrText
+        ? (basePrompt ? `${basePrompt}\n\n${ocrText}` : ocrText)
+        : (basePrompt || 'Provide only a short, direct answer: ');
+
+      // Inject text directly into active AI editor and submit
+      const submitTextScript = `
+        (async function() {
+          const url = window.location.href;
+          const text = ${JSON.stringify(textToInject)};
+          let target = null;
+          let sendBtn = null;
+
+          if (url.includes('gemini.google.com')) {
+            target = document.querySelector('rich-textarea div[contenteditable="true"]') ||
+                     document.querySelector('div[contenteditable="true"]') ||
+                     document.querySelector('div[role="textbox"]');
+            sendBtn = document.querySelector('button[aria-label*="Send prompt"]') ||
+                      document.querySelector('button[aria-label*="Send message"]') ||
+                      document.querySelector('button.send-button');
+          } else if (url.includes('chatgpt.com')) {
+            target = document.querySelector('#prompt-textarea') ||
+                     document.querySelector('div[contenteditable="true"]') ||
+                     document.querySelector('textarea');
+            sendBtn = document.querySelector('button[data-testid="send-button"]') ||
+                      document.querySelector('button[aria-label*="Send prompt"]');
+          } else if (url.includes('claude.ai')) {
+            target = document.querySelector('div[contenteditable="true"].ProseMirror') ||
+                     document.querySelector('div[contenteditable="true"]');
+            sendBtn = document.querySelector('button[aria-label*="Send Message"]') ||
+                      document.querySelector('button:has(svg)');
+          } else {
+            target = document.querySelector('div[contenteditable="true"]') || document.querySelector('textarea');
+          }
+
+          if (target) {
+            target.focus();
+            document.execCommand('insertText', false, text);
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+
+            setTimeout(() => {
+              if (sendBtn && !sendBtn.disabled) {
+                sendBtn.click();
+              } else {
+                target.dispatchEvent(new KeyboardEvent('keydown', {
+                  key: 'Enter',
+                  code: 'Enter',
+                  keyCode: 13,
+                  which: 13,
+                  bubbles: true
+                }));
+              }
+            }, 200);
+          }
+        })();
+      `;
+
+      await aiView.webContents.executeJavaScript(submitTextScript);
+      return;
+    }
+
+    // Default: Image Paste Workflow
     clipboard.writeImage(image);
     console.log('[AntiRecAI] Screenshot copied to clipboard.');
 
@@ -933,6 +1126,7 @@ function registerShortcuts() {
   const shortcutDefs = [
     { id: 'toggle', key: toggleKey, action: () => toggleWindowVisibility() },
     { id: 'snip', key: snipKey, action: () => triggerScreenshotWorkflow() },
+    { id: 'ghost', key: hotkeys.ghost || 'CommandOrControl+Alt+G', action: () => toggleGhostMode() },
     { id: 'setPoint1', key: hotkeys.setPoint1 || 'CommandOrControl+1', action: () => setRegionPoint(1) },
     { id: 'setPoint2', key: hotkeys.setPoint2 || 'CommandOrControl+2', action: () => setRegionPoint(2) },
     { id: 'resetRegion', key: hotkeys.resetRegion || 'CommandOrControl+Alt+R', action: () => resetRegion() },
@@ -1125,6 +1319,14 @@ function setupIpcHandlers() {
     saveSettingsToDisk();
     applyScreenProtection(mainWindow, isEnabled);
     setupTray();
+  });
+
+  ipcMain.on('app-set-ghost-mode', (_event, isEnabled) => {
+    setGhostMode(isEnabled);
+  });
+
+  ipcMain.on('app-toggle-ghost-mode', () => {
+    toggleGhostMode();
   });
 
   ipcMain.on('app-minimize', () => {

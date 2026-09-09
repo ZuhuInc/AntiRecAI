@@ -169,6 +169,17 @@
       background: rgba(56, 189, 248, 0.15);
     }
 
+    .icon-btn.ghost-btn {
+      display: none;
+    }
+
+    .icon-btn.ghost-btn.active {
+      display: flex;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.15);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+    }
+
     .icon-btn.close:hover {
       background: var(--danger-hover);
       color: #fff;
@@ -466,14 +477,85 @@
       background-color: #fff;
     }
 
+    /* Segmented Pill Switch */
+    .segmented-pill-control {
+      display: inline-flex;
+      align-items: center;
+      background: #101115;
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 2px;
+      gap: 2px;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    .pill-segment-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+
+    .pill-segment-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .pill-segment-btn:hover {
+      color: var(--text-main);
+    }
+
+    .pill-segment-btn.active {
+      color: #fff;
+      background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+      font-weight: 600;
+    }
+
     .info-card {
+      position: relative;
       background: rgba(56, 189, 248, 0.08);
       border: 1px solid rgba(56, 189, 248, 0.2);
       border-radius: 8px;
-      padding: 10px;
+      padding: 10px 28px 10px 10px;
       font-size: 11.5px;
       line-height: 1.5;
       color: #bae6fd;
+    }
+
+    .info-card-close {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: transparent;
+      border: none;
+      color: rgba(186, 230, 253, 0.6);
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .info-card-close:hover {
+      background: rgba(56, 189, 248, 0.2);
+      color: #fff;
     }
 
     .btn-row {
@@ -568,6 +650,15 @@
 
     <!-- Right Group: Action & Window Controls -->
     <div class="controls-right">
+      <!-- Ghost Mode Button (Left of Reload) -->
+      <button class="icon-btn ghost-btn" id="btn-ghost" title="Ghost Mode (Click-Through: Ctrl+Alt+G)" onclick="toggleGhostMode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 10h.01"/>
+          <path d="M15 10h.01"/>
+          <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>
+        </svg>
+      </button>
+
       <!-- Reload Button -->
       <button class="icon-btn" id="btn-reload" title="Reload Active Page" onclick="reloadActivePage()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -590,13 +681,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
-
-      <!-- Minimize Button -->
-      <button class="icon-btn" id="btn-minimize" title="Minimize" onclick="minimizeWindow()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
       </button>
 
@@ -644,6 +728,33 @@
       </div>
 
       <div class="setting-group">
+        <div class="switch-row" style="gap: 10px;">
+          <div style="flex: 1; min-width: 0;">
+            <div class="setting-label" style="margin-bottom: 2px;">Snip Mode</div>
+            <div style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">Image paste or local OCR text</div>
+          </div>
+          <div class="segmented-pill-control" id="snip-mode-pill">
+            <button type="button" class="pill-segment-btn active" id="btn-mode-image" data-mode="image" onclick="setSnipMode('image')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              Image
+            </button>
+            <button type="button" class="pill-segment-btn" id="btn-mode-ocr" data-mode="ocr" onclick="setSnipMode('ocr')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 7 4 4 20 4 20 7"/>
+                <line x1="9" y1="20" x2="15" y2="20"/>
+                <line x1="12" y1="4" x2="12" y2="20"/>
+              </svg>
+              OCR Text
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-group">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <label class="setting-label">Window Opacity / Transparency</label>
           <span class="slider-val-badge" id="opacity-badge">100%</span>
@@ -678,6 +789,10 @@
             <input type="text" class="hotkey-input" id="hotkey-snip" readonly value="Ctrl+Shift+S" data-accelerator="CommandOrControl+Shift+S" />
           </div>
           <div class="hotkey-row">
+            <span class="hotkey-title">Ghost Mode (Click-Through)</span>
+            <input type="text" class="hotkey-input" id="hotkey-ghost" readonly value="Ctrl+Alt+G" data-accelerator="CommandOrControl+Alt+G" />
+          </div>
+          <div class="hotkey-row">
             <span class="hotkey-title">Set Region Top-Left</span>
             <input type="text" class="hotkey-input" id="hotkey-p1" readonly value="Ctrl+1" data-accelerator="CommandOrControl+1" />
           </div>
@@ -708,7 +823,13 @@
     <!-- Pinned Bottom Footer Area -->
     <div class="modal-footer-area">
       <!-- Blue Screen Protection Notify Card -->
-      <div class="info-card">
+      <div class="info-card" id="info-card">
+        <button class="info-card-close" onclick="dismissInfoCard()" title="Dismiss this tip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
         <strong>Stealth Screen Protection:</strong> Active (WDA_EXCLUDEFROMCAPTURE)<br>
         • <strong>Stealth Region Snip:</strong> Hover corners & press <strong>Ctrl+1</strong> / <strong>Ctrl+2</strong> to lock snip area silently. <strong>Ctrl+Alt+R</strong> resets.<br>
         • <strong>Multi-Monitor:</strong> Snips whichever monitor your cursor or region rests on.<br>
@@ -964,12 +1085,43 @@
       }
     });
 
+    let isGhostActive = false;
+    let currentSnipMode = 'image';
+
+    function setSnipMode(mode) {
+      currentSnipMode = mode === 'ocr' ? 'ocr' : 'image';
+      const imgBtn = document.getElementById('btn-mode-image');
+      const ocrBtn = document.getElementById('btn-mode-ocr');
+      if (imgBtn && ocrBtn) {
+        imgBtn.classList.toggle('active', currentSnipMode === 'image');
+        ocrBtn.classList.toggle('active', currentSnipMode === 'ocr');
+      }
+    }
+
+    function toggleGhostMode() {
+      if (window.antiRecAPI && window.antiRecAPI.toggleGhostMode) {
+        window.antiRecAPI.toggleGhostMode();
+      }
+    }
+
+    function updateGhostUI(isGhost) {
+      isGhostActive = isGhost;
+      const btn = document.getElementById('btn-ghost');
+      if (btn) {
+        btn.classList.toggle('active', isGhost);
+        btn.title = isGhost
+          ? 'Ghost Mode ACTIVE (Click-Through: Press Hotkey to Disable)'
+          : 'Ghost Mode (Click-Through: Ctrl+Alt+G)';
+      }
+    }
+
     function saveSettings() {
       const prompt = document.getElementById('setting-prompt').value;
       const customUrl = document.getElementById('setting-custom-url').value.trim();
 
       const toggleAcc = document.getElementById('hotkey-toggle').dataset.accelerator || 'CommandOrControl+Shift+H';
       const snipAcc = document.getElementById('hotkey-snip').dataset.accelerator || 'CommandOrControl+Shift+S';
+      const ghostAcc = document.getElementById('hotkey-ghost').dataset.accelerator || 'CommandOrControl+Alt+G';
       const p1Acc = document.getElementById('hotkey-p1').dataset.accelerator || 'CommandOrControl+1';
       const p2Acc = document.getElementById('hotkey-p2').dataset.accelerator || 'CommandOrControl+2';
       const resetAcc = document.getElementById('hotkey-reset').dataset.accelerator || 'CommandOrControl+Alt+R';
@@ -977,9 +1129,11 @@
 
       const payload = {
         customPrompt: prompt,
+        snipMode: currentSnipMode,
         hotkeys: {
           toggle: toggleAcc,
           snip: snipAcc,
+          ghost: ghostAcc,
           setPoint1: p1Acc,
           setPoint2: p2Acc,
           resetRegion: resetAcc,
@@ -1002,8 +1156,27 @@
       toggleSettingsModal();
     }
 
+    function dismissInfoCard() {
+      localStorage.setItem('hideInfoCard', 'true');
+      const card = document.getElementById('info-card');
+      if (card) card.style.display = 'none';
+    }
+
+    function checkInfoCardVisibility() {
+      const card = document.getElementById('info-card');
+      if (card) {
+        if (localStorage.getItem('hideInfoCard') === 'true') {
+          card.style.display = 'none';
+        } else {
+          card.style.display = 'block';
+        }
+      }
+    }
+
     function clearSessionAndSignOut() {
       if (confirm('Clear all stored cookies and session data? You will need to sign in again.')) {
+        localStorage.removeItem('hideInfoCard');
+        checkInfoCardVisibility();
         if (window.antiRecAPI && window.antiRecAPI.clearSession) {
           window.antiRecAPI.clearSession();
         }
@@ -1040,6 +1213,9 @@
         const obsCheck = document.getElementById('setting-antiobs');
         if (obsCheck) obsCheck.checked = settings.antiObs;
       }
+      if (settings.snipMode) {
+        setSnipMode(settings.snipMode);
+      }
       if (settings.customServiceUrl) {
         setCustomService(settings.customServiceUrl);
       }
@@ -1053,6 +1229,11 @@
           const el = document.getElementById('hotkey-snip');
           el.dataset.accelerator = settings.hotkeys.snip;
           el.value = settings.hotkeys.snip.replace('CommandOrControl', 'Ctrl');
+        }
+        if (settings.hotkeys.ghost) {
+          const el = document.getElementById('hotkey-ghost');
+          el.dataset.accelerator = settings.hotkeys.ghost;
+          el.value = settings.hotkeys.ghost.replace('CommandOrControl', 'Ctrl');
         }
         if (settings.hotkeys.setPoint1) {
           const el = document.getElementById('hotkey-p1');
@@ -1086,10 +1267,14 @@
     // Initialize keybind recorders
     setupHotkeyRecorder('hotkey-toggle', 'CommandOrControl+Shift+H');
     setupHotkeyRecorder('hotkey-snip', 'CommandOrControl+Shift+S');
+    setupHotkeyRecorder('hotkey-ghost', 'CommandOrControl+Alt+G');
     setupHotkeyRecorder('hotkey-p1', 'CommandOrControl+1');
     setupHotkeyRecorder('hotkey-p2', 'CommandOrControl+2');
     setupHotkeyRecorder('hotkey-reset', 'CommandOrControl+Alt+R');
     setupHotkeyRecorder('hotkey-exit', 'CommandOrControl+Shift+End');
+
+    // Check dismissed info card visibility
+    checkInfoCardVisibility();
 
     // Hydrate settings on startup
     if (window.antiRecAPI) {
@@ -1098,6 +1283,11 @@
       }
       if (window.antiRecAPI.onInitialSettings) {
         window.antiRecAPI.onInitialSettings(applySettingsToUI);
+      }
+      if (window.antiRecAPI.onGhostModeChanged) {
+        window.antiRecAPI.onGhostModeChanged((isGhost) => {
+          updateGhostUI(isGhost);
+        });
       }
       if (window.antiRecAPI.getVersion) {
         window.antiRecAPI.getVersion().then((ver) => {
