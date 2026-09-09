@@ -245,10 +245,33 @@
       border-radius: 7px;
       padding: 8px 10px;
       display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.12);
+    }
+
+    .update-row {
+      display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
-      box-shadow: 0 0 10px rgba(234, 179, 8, 0.12);
+    }
+
+    .update-progress-wrap {
+      display: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .update-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #eab308;
+      border-radius: 2px;
+      transition: width 0.15s ease;
     }
 
     .modal-title {
@@ -655,6 +678,18 @@
             <input type="text" class="hotkey-input" id="hotkey-snip" readonly value="Ctrl+Shift+S" data-accelerator="CommandOrControl+Shift+S" />
           </div>
           <div class="hotkey-row">
+            <span class="hotkey-title">Set Region Top-Left</span>
+            <input type="text" class="hotkey-input" id="hotkey-p1" readonly value="Ctrl+1" data-accelerator="CommandOrControl+1" />
+          </div>
+          <div class="hotkey-row">
+            <span class="hotkey-title">Set Region Bottom-Right</span>
+            <input type="text" class="hotkey-input" id="hotkey-p2" readonly value="Ctrl+2" data-accelerator="CommandOrControl+2" />
+          </div>
+          <div class="hotkey-row">
+            <span class="hotkey-title">Reset Region (Full Screen)</span>
+            <input type="text" class="hotkey-input" id="hotkey-reset" readonly value="Ctrl+Alt+R" data-accelerator="CommandOrControl+Alt+R" />
+          </div>
+          <div class="hotkey-row">
             <span class="hotkey-title">Emergency Exit</span>
             <input type="text" class="hotkey-input" id="hotkey-exit" readonly value="Ctrl+Shift+End" data-accelerator="CommandOrControl+Shift+End" />
           </div>
@@ -675,20 +710,26 @@
       <!-- Blue Screen Protection Notify Card -->
       <div class="info-card">
         <strong>Stealth Screen Protection:</strong> Active (WDA_EXCLUDEFROMCAPTURE)<br>
-        • <strong>Hotkey Support:</strong> Supports keyboard combos & mouse buttons (Mouse4, Mouse5, Mouse3/Middle).<br>
+        • <strong>Stealth Region Snip:</strong> Hover corners & press <strong>Ctrl+1</strong> / <strong>Ctrl+2</strong> to lock snip area silently. <strong>Ctrl+Alt+R</strong> resets.<br>
+        • <strong>Multi-Monitor:</strong> Snips whichever monitor your cursor or region rests on.<br>
         • <strong>Emergency Exit:</strong> Terminate AntiRecAI instantly anytime.
       </div>
 
       <!-- Yellow Update Available Notification Banner (Under info card) -->
       <div id="update-notify-card" class="update-card" style="display: none;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #eab308; box-shadow: 0 0 6px #eab308;"></span>
-          <div>
-            <div id="update-version-title" style="font-size: 11.5px; font-weight: 700; color: #fef08a;">Update Available</div>
-            <div id="update-version-sub" style="font-size: 10.5px; color: #fef9c3;">Click to view latest release</div>
+        <div class="update-row">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #eab308; box-shadow: 0 0 6px #eab308;"></span>
+            <div>
+              <div id="update-version-title" style="font-size: 11.5px; font-weight: 700; color: #fef08a;">Update Available</div>
+              <div id="update-version-sub" style="font-size: 10.5px; color: #fef9c3;">Click to download update</div>
+            </div>
           </div>
+          <button id="update-action-btn" class="btn warning" onclick="handleUpdateAction()" style="flex: none; padding: 4px 12px; font-size: 11px;">Update</button>
         </div>
-        <button class="btn warning" onclick="openUpdateRelease()" style="flex: none; padding: 4px 12px; font-size: 11px;">View Update</button>
+        <div class="update-progress-wrap" id="update-progress-wrap">
+          <div class="update-progress-fill" id="update-progress-fill"></div>
+        </div>
       </div>
 
       <!-- Action Buttons -->
@@ -929,6 +970,9 @@
 
       const toggleAcc = document.getElementById('hotkey-toggle').dataset.accelerator || 'CommandOrControl+Shift+H';
       const snipAcc = document.getElementById('hotkey-snip').dataset.accelerator || 'CommandOrControl+Shift+S';
+      const p1Acc = document.getElementById('hotkey-p1').dataset.accelerator || 'CommandOrControl+1';
+      const p2Acc = document.getElementById('hotkey-p2').dataset.accelerator || 'CommandOrControl+2';
+      const resetAcc = document.getElementById('hotkey-reset').dataset.accelerator || 'CommandOrControl+Alt+R';
       const exitAcc = document.getElementById('hotkey-exit').dataset.accelerator || 'CommandOrControl+Shift+End';
 
       const payload = {
@@ -936,6 +980,9 @@
         hotkeys: {
           toggle: toggleAcc,
           snip: snipAcc,
+          setPoint1: p1Acc,
+          setPoint2: p2Acc,
+          resetRegion: resetAcc,
           exit: exitAcc
         }
       };
@@ -1007,6 +1054,21 @@
           el.dataset.accelerator = settings.hotkeys.snip;
           el.value = settings.hotkeys.snip.replace('CommandOrControl', 'Ctrl');
         }
+        if (settings.hotkeys.setPoint1) {
+          const el = document.getElementById('hotkey-p1');
+          el.dataset.accelerator = settings.hotkeys.setPoint1;
+          el.value = settings.hotkeys.setPoint1.replace('CommandOrControl', 'Ctrl');
+        }
+        if (settings.hotkeys.setPoint2) {
+          const el = document.getElementById('hotkey-p2');
+          el.dataset.accelerator = settings.hotkeys.setPoint2;
+          el.value = settings.hotkeys.setPoint2.replace('CommandOrControl', 'Ctrl');
+        }
+        if (settings.hotkeys.resetRegion) {
+          const el = document.getElementById('hotkey-reset');
+          el.dataset.accelerator = settings.hotkeys.resetRegion;
+          el.value = settings.hotkeys.resetRegion.replace('CommandOrControl', 'Ctrl');
+        }
         if (settings.hotkeys.exit) {
           const el = document.getElementById('hotkey-exit');
           el.dataset.accelerator = settings.hotkeys.exit;
@@ -1024,6 +1086,9 @@
     // Initialize keybind recorders
     setupHotkeyRecorder('hotkey-toggle', 'CommandOrControl+Shift+H');
     setupHotkeyRecorder('hotkey-snip', 'CommandOrControl+Shift+S');
+    setupHotkeyRecorder('hotkey-p1', 'CommandOrControl+1');
+    setupHotkeyRecorder('hotkey-p2', 'CommandOrControl+2');
+    setupHotkeyRecorder('hotkey-reset', 'CommandOrControl+Alt+R');
     setupHotkeyRecorder('hotkey-exit', 'CommandOrControl+Shift+End');
 
     // Hydrate settings on startup
@@ -1054,12 +1119,114 @@
       }, 1000);
     }
 
-    let latestReleaseUrl = 'https://github.com/ZuhuInc/AntiRecAI/releases';
+    let updateState = {
+      hasUpdate: false,
+      isPackaged: false,
+      isDownloading: false,
+      isDownloaded: false,
+      latestVersion: '',
+      releaseUrl: 'https://github.com/ZuhuInc/AntiRecAI/releases'
+    };
+
+    function handleUpdateAction() {
+      if (updateState.isDownloaded) {
+        if (window.antiRecAPI && window.antiRecAPI.installUpdate) {
+          window.antiRecAPI.installUpdate();
+        }
+      } else if (updateState.isPackaged && !updateState.isDownloading) {
+        startUpdateDownload();
+      } else {
+        openUpdateRelease();
+      }
+    }
+
+    async function startUpdateDownload() {
+      const btn = document.getElementById('update-action-btn');
+      const subEl = document.getElementById('update-version-sub');
+      const progressWrap = document.getElementById('update-progress-wrap');
+      const progressFill = document.getElementById('update-progress-fill');
+
+      updateState.isDownloading = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Downloading...';
+      }
+      if (subEl) subEl.innerText = 'Connecting to release server...';
+      if (progressWrap) progressWrap.style.display = 'block';
+      if (progressFill) progressFill.style.width = '0%';
+
+      if (window.antiRecAPI && window.antiRecAPI.downloadUpdate) {
+        try {
+          const res = await window.antiRecAPI.downloadUpdate();
+          if (!res || !res.success) {
+            updateState.isDownloading = false;
+            if (btn) {
+              btn.disabled = false;
+              btn.innerText = 'View Release';
+            }
+            if (subEl) subEl.innerText = (res && res.error) ? res.error : 'Click to view release on GitHub';
+          }
+        } catch (e) {
+          console.warn('Update download error:', e);
+          updateState.isDownloading = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'View Release';
+          }
+        }
+      }
+    }
+
+    // Handle background updater progress
+    if (window.antiRecAPI && window.antiRecAPI.onUpdaterProgress) {
+      window.antiRecAPI.onUpdaterProgress((data) => {
+        const subEl = document.getElementById('update-version-sub');
+        const progressFill = document.getElementById('update-progress-fill');
+        const progressWrap = document.getElementById('update-progress-wrap');
+        const pct = data.percent || 0;
+        const mbSec = (data.bytesPerSecond / (1024 * 1024)).toFixed(1);
+
+        if (progressWrap) progressWrap.style.display = 'block';
+        if (progressFill) progressFill.style.width = pct + '%';
+        if (subEl) subEl.innerText = `Downloading: ${pct}% (${mbSec} MB/s)`;
+      });
+    }
+
+    // Handle background updater status
+    if (window.antiRecAPI && window.antiRecAPI.onUpdaterStatus) {
+      window.antiRecAPI.onUpdaterStatus((data) => {
+        const btn = document.getElementById('update-action-btn');
+        const subEl = document.getElementById('update-version-sub');
+        const progressWrap = document.getElementById('update-progress-wrap');
+
+        if (data.status === 'downloaded') {
+          updateState.isDownloading = false;
+          updateState.isDownloaded = true;
+          if (progressWrap) progressWrap.style.display = 'none';
+          if (subEl) subEl.innerText = 'Download complete! Ready to install.';
+          if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'Restart & Install';
+            btn.classList.remove('warning');
+            btn.classList.add('primary');
+          }
+        } else if (data.status === 'error') {
+          updateState.isDownloading = false;
+          if (progressWrap) progressWrap.style.display = 'none';
+          if (subEl) subEl.innerText = 'Update error. Click to view release manually.';
+          if (btn) {
+            btn.disabled = false;
+            btn.innerText = 'View Release';
+          }
+        }
+      });
+    }
 
     async function checkVersionUpdates(isManual = false) {
       const statusBadge = document.getElementById('app-status-badge');
       const updateCard = document.getElementById('update-notify-card');
       const statusDot = document.getElementById('version-status-dot');
+      const btn = document.getElementById('update-action-btn');
 
       if (!statusBadge) return;
 
@@ -1071,12 +1238,23 @@
         try {
           const res = await window.antiRecAPI.checkUpdate();
           if (res && res.success) {
+            updateState.isPackaged = !!res.isPackaged;
+            updateState.hasUpdate = !!res.hasUpdate;
+            updateState.latestVersion = res.latestVersion || '';
+            updateState.releaseUrl = res.releaseUrl || 'https://github.com/ZuhuInc/AntiRecAI/releases/latest';
+
             if (res.hasUpdate) {
-              latestReleaseUrl = res.releaseUrl || 'https://github.com/ZuhuInc/AntiRecAI/releases/latest';
               const titleEl = document.getElementById('update-version-title');
               const subEl = document.getElementById('update-version-sub');
               if (titleEl) titleEl.innerText = `Update Available: ${res.latestVersion}`;
-              if (subEl) subEl.innerText = `Current: v${res.currentVersion} • New: ${res.latestVersion}`;
+              if (subEl) {
+                subEl.innerText = updateState.isPackaged
+                  ? `Current: v${res.currentVersion} • Click Update to install`
+                  : `Current: v${res.currentVersion} • Click to view release`;
+              }
+              if (btn) {
+                btn.innerText = updateState.isPackaged ? 'Update' : 'View Release';
+              }
               if (updateCard) updateCard.style.display = 'flex';
 
               statusBadge.innerText = `Update ${res.latestVersion} available!`;
@@ -1107,10 +1285,11 @@
     }
 
     function openUpdateRelease() {
+      const url = updateState.releaseUrl || 'https://github.com/ZuhuInc/AntiRecAI/releases';
       if (window.antiRecAPI && window.antiRecAPI.openExternal) {
-        window.antiRecAPI.openExternal(latestReleaseUrl);
+        window.antiRecAPI.openExternal(url);
       } else {
-        window.open(latestReleaseUrl, '_blank');
+        window.open(url, '_blank');
       }
     }
   </script>

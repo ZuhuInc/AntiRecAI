@@ -15,6 +15,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const screenshot = require('screenshot-desktop');
+const { autoUpdater } = require('electron-updater');
 
 // Desktop User-Agents
 const CHROME_DESKTOP_UA =
@@ -60,7 +61,10 @@ const DEFAULT_SETTINGS = {
   hotkeys: {
     toggle: 'CommandOrControl+Shift+H',
     snip: 'CommandOrControl+Shift+S',
-    exit: 'CommandOrControl+Shift+End'
+    exit: 'CommandOrControl+Shift+End',
+    setPoint1: 'CommandOrControl+1',
+    setPoint2: 'CommandOrControl+2',
+    resetRegion: 'CommandOrControl+Alt+R'
   }
 };
 
@@ -75,7 +79,9 @@ function loadSettingsFromDisk() {
     const filePath = getSettingsFilePath();
     if (fs.existsSync(filePath)) {
       const raw = fs.readFileSync(filePath, 'utf8');
-      userSettings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw));
+      const loaded = JSON.parse(raw);
+      userSettings = Object.assign({}, DEFAULT_SETTINGS, loaded);
+      userSettings.hotkeys = Object.assign({}, DEFAULT_SETTINGS.hotkeys, loaded.hotkeys || {});
       console.log('[AntiRecAI] Loaded persistent settings from disk.');
     }
   } catch (err) {
@@ -257,18 +263,74 @@ function createFallbackTrayIcon() {
   return nativeImage.createFromDataURL(base64Icon);
 }
 
+// --- Auto-Updater Configuration (Installer Builds) ---
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function sendToHeader(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('[AntiRecAI Updater] Checking for update...');
+  sendToHeader('updater-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('[AntiRecAI Updater] Update available:', info ? info.version : '');
+  sendToHeader('updater-status', {
+    status: 'available',
+    version: info ? info.version : '',
+    releaseDate: info ? info.releaseDate : '',
+    releaseNotes: info ? (info.releaseNotes || '') : ''
+  });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('[AntiRecAI Updater] Up to date.');
+  sendToHeader('updater-status', { status: 'not-available', version: info ? info.version : app.getVersion() });
+});
+
+autoUpdater.on('error', (err) => {
+  console.warn('[AntiRecAI Updater] Error:', err ? err.message : err);
+  sendToHeader('updater-status', { status: 'error', error: err ? err.message : 'Update failed' });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  sendToHeader('updater-progress', {
+    percent: Math.round(progressObj.percent || 0),
+    bytesPerSecond: progressObj.bytesPerSecond || 0,
+    transferred: progressObj.transferred || 0,
+    total: progressObj.total || 0
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('[AntiRecAI Updater] Update downloaded:', info ? info.version : '');
+  sendToHeader('updater-status', { status: 'downloaded', version: info ? info.version : '' });
+});
+
+let isSettingsModalOpen = false;
+
 /**
  * Update the AI BrowserView bounds to fit below custom header (40px)
  */
 function updateViewBounds() {
   if (!mainWindow || !aiView) return;
   const [width, height] = mainWindow.getSize();
-  aiView.setBounds({
-    x: 0,
-    y: 40,
-    width: width,
-    height: Math.max(0, height - 40)
-  });
+  if (isSettingsModalOpen) {
+    // Keep AI BrowserView pushed below window bounds when settings modal is open
+    aiView.setBounds({ x: 0, y: height, width: width, height: 0 });
+  } else {
+    aiView.setBounds({
+      x: 0,
+      y: 40,
+      width: width,
+      height: Math.max(0, height - 40)
+    });
+  }
 }
 
 /**
@@ -446,6 +508,9 @@ function setupTray() {
   const hotkeys = userSettings.hotkeys || DEFAULT_SETTINGS.hotkeys;
   const toggleLabel = (hotkeys.toggle || 'Ctrl+Shift+H').replace('CommandOrControl', 'Ctrl');
   const snipLabel = (hotkeys.snip || 'Ctrl+Shift+S').replace('CommandOrControl', 'Ctrl');
+  const p1Label = (hotkeys.setPoint1 || 'Ctrl+1').replace('CommandOrControl', 'Ctrl');
+  const p2Label = (hotkeys.setPoint2 || 'Ctrl+2').replace('CommandOrControl', 'Ctrl');
+  const resetLabel = (hotkeys.resetRegion || 'Ctrl+Alt+R').replace('CommandOrControl', 'Ctrl');
   const exitLabel = (hotkeys.exit || 'Ctrl+Shift+End').replace('CommandOrControl', 'Ctrl');
 
   const contextMenu = Menu.buildFromTemplate([
@@ -456,6 +521,19 @@ function setupTray() {
     {
       label: `Capture & Query (${snipLabel})`,
       click: () => triggerScreenshotWorkflow()
+    },
+    { type: 'separator' },
+    {
+      label: `Set Region Top-Left (${p1Label})`,
+      click: () => setRegionPoint(1)
+    },
+    {
+      label: `Set Region Bottom-Right (${p2Label})`,
+      click: () => setRegionPoint(2)
+    },
+    {
+      label: `Reset Region to Full Screen (${resetLabel})`,
+      click: () => resetRegion()
     },
     { type: 'separator' },
     {
@@ -548,15 +626,112 @@ function switchService(url, siteKey) {
   }
 }
 
+// --- Stealth Region Coordinates ---
+let savedRegion = {
+  p1: null,
+  p2: null
+};
+
+function setRegionPoint(pointIndex) {
+  const cursor = screen.getCursorScreenPoint();
+  if (pointIndex === 1) {
+    savedRegion.p1 = cursor;
+    console.log(`[AntiRecAI] Set Region Top-Left (Point 1): (${cursor.x}, ${cursor.y})`);
+  } else if (pointIndex === 2) {
+    savedRegion.p2 = cursor;
+    console.log(`[AntiRecAI] Set Region Bottom-Right (Point 2): (${cursor.x}, ${cursor.y})`);
+  }
+}
+
+function resetRegion() {
+  savedRegion.p1 = null;
+  savedRegion.p2 = null;
+  console.log('[AntiRecAI] Region reset to full screen capture.');
+}
+
+/**
+ * Multi-Monitor Aware Screenshot Capture & Dynamic Box Cropper
+ */
+async function captureTargetDisplayOrRegion() {
+  let displays = [];
+  try {
+    displays = await screenshot.listDisplays();
+  } catch (err) {
+    console.warn('[AntiRecAI] Failed to list displays:', err.message);
+  }
+
+  const cursor = screen.getCursorScreenPoint();
+  let targetDisplay = null;
+  let hasValidRegion = false;
+  let cropBox = null;
+
+  if (savedRegion.p1 && savedRegion.p2) {
+    const minX = Math.min(savedRegion.p1.x, savedRegion.p2.x);
+    const maxX = Math.max(savedRegion.p1.x, savedRegion.p2.x);
+    const minY = Math.min(savedRegion.p1.y, savedRegion.p2.y);
+    const maxY = Math.max(savedRegion.p1.y, savedRegion.p2.y);
+
+    const midX = (minX + maxX) / 2;
+    const midY = (minY + maxY) / 2;
+
+    if (displays.length > 0) {
+      targetDisplay = displays.find(d => midX >= d.left && midX < d.right && midY >= d.top && midY < d.bottom) || displays[0];
+    }
+
+    if (maxX - minX > 5 && maxY - minY > 5) {
+      hasValidRegion = true;
+      cropBox = { minX, maxX, minY, maxY };
+    }
+  }
+
+  // Fallback to active display where cursor is
+  if (!targetDisplay && displays.length > 0) {
+    targetDisplay = displays.find(d => cursor.x >= d.left && cursor.x < d.right && cursor.y >= d.top && cursor.y < d.bottom) || displays[0];
+  }
+
+  const captureOpts = targetDisplay ? { screen: targetDisplay.id, format: 'png' } : { format: 'png' };
+  const imgBuffer = await screenshot(captureOpts);
+  let image = nativeImage.createFromBuffer(imgBuffer);
+
+  if (hasValidRegion && cropBox && targetDisplay) {
+    const imgSize = image.getSize();
+    const scaleX = imgSize.width / targetDisplay.width;
+    const scaleY = imgSize.height / targetDisplay.height;
+
+    const localMinX = Math.max(0, cropBox.minX - targetDisplay.left);
+    const localMinY = Math.max(0, cropBox.minY - targetDisplay.top);
+    const localMaxX = Math.min(targetDisplay.width, cropBox.maxX - targetDisplay.left);
+    const localMaxY = Math.min(targetDisplay.height, cropBox.maxY - targetDisplay.top);
+
+    const cropX = Math.max(0, Math.round(localMinX * scaleX));
+    const cropY = Math.max(0, Math.round(localMinY * scaleY));
+    const cropW = Math.round((localMaxX - localMinX) * scaleX);
+    const cropH = Math.round((localMaxY - localMinY) * scaleY);
+
+    if (cropW > 10 && cropH > 10 && cropX + cropW <= imgSize.width && cropY + cropH <= imgSize.height) {
+      image = image.crop({
+        x: cropX,
+        y: cropY,
+        width: cropW,
+        height: cropH
+      });
+      console.log(`[AntiRecAI] Cropped region screenshot: ${cropW}x${cropH} (${targetDisplay.name || targetDisplay.id})`);
+    }
+  } else {
+    console.log(`[AntiRecAI] Captured full display (${targetDisplay ? (targetDisplay.name || targetDisplay.id) : 'primary'})`);
+  }
+
+  return image;
+}
+
 /**
  * Universal Multi-AI Prompt & Screenshot Injector
  */
 async function triggerScreenshotWorkflow() {
   try {
     console.log('[AntiRecAI] Capturing screen in memory...');
-    const imgBuffer = await screenshot({ format: 'png' });
+    const image = await captureTargetDisplayOrRegion();
 
-    const image = nativeImage.createFromBuffer(imgBuffer);
     clipboard.writeImage(image);
     console.log('[AntiRecAI] Screenshot copied to clipboard.');
 
@@ -758,6 +933,9 @@ function registerShortcuts() {
   const shortcutDefs = [
     { id: 'toggle', key: toggleKey, action: () => toggleWindowVisibility() },
     { id: 'snip', key: snipKey, action: () => triggerScreenshotWorkflow() },
+    { id: 'setPoint1', key: hotkeys.setPoint1 || 'CommandOrControl+1', action: () => setRegionPoint(1) },
+    { id: 'setPoint2', key: hotkeys.setPoint2 || 'CommandOrControl+2', action: () => setRegionPoint(2) },
+    { id: 'resetRegion', key: hotkeys.resetRegion || 'CommandOrControl+Alt+R', action: () => resetRegion() },
     {
       id: 'exit',
       key: exitKey,
@@ -825,6 +1003,32 @@ function setupIpcHandlers() {
 
   ipcMain.handle('app-check-update', async () => {
     const currentVersion = app.getVersion();
+
+    // Use electron-updater if packaged (NSIS installer)
+    if (app.isPackaged) {
+      try {
+        const result = await autoUpdater.checkForUpdates();
+        const latestVersion = (result && result.updateInfo && result.updateInfo.version)
+          ? result.updateInfo.version
+          : currentVersion;
+        const isNewer = compareVersions(latestVersion, currentVersion) > 0;
+
+        return {
+          success: true,
+          isPackaged: true,
+          currentVersion,
+          latestVersion,
+          hasUpdate: isNewer,
+          releaseUrl: 'https://github.com/ZuhuInc/AntiRecAI/releases/latest',
+          releaseName: result && result.updateInfo ? (result.updateInfo.releaseName || `AntiRecAI v${latestVersion}`) : '',
+          releaseNotes: result && result.updateInfo ? (result.updateInfo.releaseNotes || '') : ''
+        };
+      } catch (err) {
+        console.warn('[AntiRecAI Updater] autoUpdater check failed, fallback to GitHub API:', err.message);
+      }
+    }
+
+    // Fallback to GitHub Releases API (for dev mode or portable builds)
     try {
       const response = await fetch('https://api.github.com/repos/ZuhuInc/AntiRecAI/releases/latest', {
         headers: {
@@ -843,6 +1047,7 @@ function setupIpcHandlers() {
 
       return {
         success: true,
+        isPackaged: app.isPackaged,
         currentVersion,
         latestVersion: data.tag_name || latestTag,
         hasUpdate: isNewer,
@@ -854,6 +1059,26 @@ function setupIpcHandlers() {
       console.warn('[AntiRecAI] Failed checking updates:', err.message);
       return { success: false, currentVersion, error: err.message };
     }
+  });
+
+  ipcMain.handle('app-download-update', async () => {
+    if (!app.isPackaged) {
+      return { success: false, error: 'Cannot download updates in unpackaged development mode.' };
+    }
+    try {
+      console.log('[AntiRecAI Updater] Starting update download...');
+      await autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (err) {
+      console.error('[AntiRecAI Updater] Download error:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.on('app-install-update', () => {
+    console.log('[AntiRecAI Updater] Quitting and installing update...');
+    isQuitting = true;
+    autoUpdater.quitAndInstall(false, true);
   });
 
   ipcMain.on('app-open-external', (_event, url) => {
@@ -932,14 +1157,8 @@ function setupIpcHandlers() {
   });
 
   ipcMain.on('app-settings-opened', (_event, isOpen) => {
-    if (!mainWindow || !aiView) return;
-    const [width, height] = mainWindow.getSize();
-    if (isOpen) {
-      // Push the view down so settings modal is fully visible and interactive
-      aiView.setBounds({ x: 0, y: height, width: width, height: 0 });
-    } else {
-      updateViewBounds();
-    }
+    isSettingsModalOpen = !!isOpen;
+    updateViewBounds();
   });
 }
 

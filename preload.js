@@ -17,5 +17,9 @@ contextBridge.exposeInMainWorld('antiRecAPI', {
   openExternal: (url) => ipcRenderer.send('app-open-external', url),
   onSettingsOpened: (isOpen) => ipcRenderer.send('app-settings-opened', isOpen),
   onSiteChanged: (callback) => ipcRenderer.on('site-changed', (_event, site) => callback(site)),
-  onInitialSettings: (callback) => ipcRenderer.on('initial-settings', (_event, settings) => callback(settings))
+  onInitialSettings: (callback) => ipcRenderer.on('initial-settings', (_event, settings) => callback(settings)),
+  downloadUpdate: () => ipcRenderer.invoke('app-download-update'),
+  installUpdate: () => ipcRenderer.send('app-install-update'),
+  onUpdaterStatus: (callback) => ipcRenderer.on('updater-status', (_event, data) => callback(data)),
+  onUpdaterProgress: (callback) => ipcRenderer.on('updater-progress', (_event, data) => callback(data))
 });
