@@ -20,9 +20,13 @@
 ## Key Highlights
 
 - **Hardware Screen Protection (`WDA_EXCLUDEFROMCAPTURE`)**: Uses low-level Windows DWM display affinity so the overlay is **100% visible and interactive to your physical eyes**, but renders completely transparent and invisible on OBS Studio, Discord screen shares, and video recordings.
-- **1-Click Screen Snip & Solve**: Press a single hotkey (such as `Ctrl+Shift+S`, `Mouse4`, or `Mouse5`) to automatically capture your display into memory, attach it to your active AI prompt, inject your custom instruction, and submit immediately.
-- **Stealth 2-Point Region Snip & Multi-Monitor Support**: Move your cursor to the top-left and press `Ctrl+1`, move to bottom-right and press `Ctrl+2` to silently lock a capture bounding box without showing visible boxes or UI traces on screen. Reset anytime with `Ctrl+Alt+R`. Multi-monitor aware—automatically targets the display your cursor or region rests on.
+- **Interactive Drag-to-Snip Overlay (`Ctrl+Alt+S`)**: Windows Snipping Tool style drag-selection with live pixel dimensions and shortcut helpers. Drag over any area on screen to immediately crop and submit to AI while remaining 100% invisible on recordings.
+- **Hardware-Accelerated In-Memory Windows OCR**: Ultra-fast native text recognition (`Windows.Media.Ocr`) in RAM under 50ms with zero temporary image files or binary bloat.
+- **1-Click Screen Snip & Solve (`Ctrl+Shift+S`)**: Single hotkey workflow that captures the active display or targeted region into memory, copies to clipboard, injects your custom prompt, and sends it directly to your active AI provider.
+- **Stealth 2-Point Region Snip & Multi-Monitor Support**: Move your cursor to the top-left and press `Ctrl+1`, move to bottom-right and press `Ctrl+2` to silently lock a capture bounding box without showing visible boxes or UI traces on screen. Reset anytime with `Ctrl+Alt+R`.
 - **Ghost Mode (Mouse Click-Through)**: Toggle click-through passthrough with `Ctrl+Alt+G` or the header ghost button. Allows you to click, type, and navigate background applications directly through the overlay without stealing window focus.
+- **Accent Theme Color Picker**: Customize the UI with 5 dynamic theme palettes (**Cyan**, **White**, **Red**, **Orange**, **Purple**) that style navigation headers, glowing borders, active tabs, and modals.
+- **Grayscale Page View Mode**: Built-in monochrome filter toggle that removes bright background gradients, glows, and colorful logos from AI webviews.
 - **Universal Multi-AI Switcher**: Switch seamlessly between **Google Gemini**, **ChatGPT**, **Claude**, or connect any **Custom AI Service URL** directly via the top navigation bar.
 - **Full Mouse Button & Keybind Customization**: Bind hotkeys to **Mouse 4**, **Mouse 5**, **Mouse 3 (Middle Click)**, or any keyboard combination with modifiers (`Ctrl`, `Alt`, `Shift`).
 - **Stealth Overlay Controls**:
@@ -42,7 +46,8 @@ All shortcuts can be reconfigured inside the **Settings** panel:
 | Action | Default Binding | Alternate Mouse Bindings | Description |
 | :--- | :--- | :--- | :--- |
 | **Toggle Overlay** | `Ctrl + Shift + H` | `Mouse4` / `Mouse5` / `Mouse3` | Instantly shows or hides the overlay window. |
-| **Snip & Solve** | `Ctrl + Shift + S` | `Ctrl + Mouse4` / Custom | Captures active display/region to memory, attaches to prompt, types instruction, and submits. |
+| **Interactive Snip (Drag)** | `Ctrl + Alt + S` | `Ctrl + Mouse4` / Custom | Opens full-screen interactive snip overlay to drag-select an area. |
+| **Snip & Solve (Instant)** | `Ctrl + Shift + S` | `Mouse4` / Custom | Captures active display/region to memory, attaches to prompt, types instruction, and submits. |
 | **Ghost Mode (Click-Through)** | `Ctrl + Alt + G` | `Mouse3` / `Mouse4` / Custom | Toggles mouse passthrough so clicks pass directly to windows behind the overlay. |
 | **Set Region Top-Left** | `Ctrl + 1` | `Mouse4` / Custom | Silently saves Point 1 at current cursor position (zero UI/audio). |
 | **Set Region Bottom-Right** | `Ctrl + 2` | `Mouse5` / Custom | Silently saves Point 2 at current cursor position (zero UI/audio). |
@@ -87,13 +92,13 @@ npm run build:all
   ```bash
   npm run build:portable
   ```
-  *Output: `dist/AntiRecAI-Portable-1.0.1.exe` (Zero installation required, run from anywhere).*
+  *Output: `dist/AntiRecAI-Portable-1.0.5.exe` (Zero installation required, run from anywhere).*
 
 - **Windows Setup Installer**:
   ```bash
   npm run build:installer
   ```
-  *Output: `dist/AntiRecAI Setup 1.0.1.exe` (Full NSIS installer with desktop and Start Menu shortcuts).*
+  *Output: `dist/AntiRecAI-Setup-1.0.5.exe` (Full NSIS installer with desktop and Start Menu shortcuts).*
 
 ---
 
@@ -115,12 +120,13 @@ To verify that AntiRecAI is properly excluded from screen captures:
 ```
 AntiRecAI/
 ├── assets/
-│   ├── IconMain.png         # Main application & tray icon
+│   ├── IconMain.png         # Main high-res application & tray icon
 │   ├── gemini.svg           # Google Gemini vector tab icon
 │   ├── chatgpt.svg          # OpenAI ChatGPT vector tab icon
 │   └── claude.svg           # Anthropic Claude vector tab icon
 ├── dist/                    # Packaged standalone .exe & installer
-├── header.html              # Custom draggable titlebar, tabs & settings UI
+├── header.html              # Custom draggable titlebar, tabs, themes & settings UI
+├── snipper.html             # Interactive drag-to-snip overlay window
 ├── main.js                  # Electron main process, Win32 display affinity & mouse poller
 ├── preload.js               # Secure IPC bridge
 ├── stealth-preload.js       # Bot detection masking & Google OAuth header patch
@@ -134,6 +140,9 @@ AntiRecAI/
 
 All settings can be customized directly in the UI via the **Settings** panel:
 - **Custom Prompt**: Change the automated instruction prompt (default: `"Provide only a short, direct answer: "`).
+- **Snip Mode**: Choose between **Image** paste (attaches full image) or **OCR Text** (in-memory hardware text extraction).
+- **Theme Color**: Select between 5 accent color themes (**Cyan**, **White**, **Red**, **Orange**, **Purple**).
+- **Grayscale Mode**: Toggle stealth monochrome filter on active AI web views.
 - **Custom AI URL**: Add any custom web AI service (such as DeepSeek, Perplexity, or a local Ollama WebUI), which dynamically adds a tab directly next to Claude.
 - **Opacity / Transparency**: Adjust the window opacity from 20% to 100%.
 - **Anti-OBS Switch**: Toggle hardware display exclusion on and off dynamically.
