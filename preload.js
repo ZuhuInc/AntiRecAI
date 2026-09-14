@@ -26,5 +26,6 @@ contextBridge.exposeInMainWorld('antiRecAPI', {
   toggleGhostMode: () => ipcRenderer.send('app-toggle-ghost-mode'),
   onGhostModeChanged: (callback) => ipcRenderer.on('ghost-mode-changed', (_event, isGhost) => callback(isGhost)),
   finishInteractiveSnip: (bounds) => ipcRenderer.send('app-finish-interactive-snip', bounds),
-  cancelInteractiveSnip: () => ipcRenderer.send('app-cancel-interactive-snip')
+  cancelInteractiveSnip: () => ipcRenderer.send('app-cancel-interactive-snip'),
+  setGrayscale: (val) => ipcRenderer.send('app-set-grayscale', val)
 });

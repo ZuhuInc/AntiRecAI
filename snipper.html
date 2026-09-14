@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AntiRecAI Snip Overlay</title>
   <style>
+    :root {
+      --accent-color: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.5);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -25,8 +30,8 @@
     #selection-box {
       position: absolute;
       display: none;
-      border: 2px solid #38bdf8;
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 12px rgba(56, 189, 248, 0.5);
+      border: 2px solid var(--accent-color);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 12px var(--accent-glow);
       pointer-events: none;
       z-index: 10;
     }
@@ -36,8 +41,8 @@
       bottom: -28px;
       left: 0;
       background: #121316;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      color: #38bdf8;
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
       font-size: 11px;
       font-weight: 600;
       padding: 3px 7px;
@@ -74,7 +79,7 @@
       border-radius: 4px;
       padding: 2px 6px;
       font-size: 11px;
-      color: #38bdf8;
+      color: var(--accent-color);
       font-family: inherit;
     }
   </style>
@@ -188,6 +193,24 @@
         window.antiRecAPI.cancelInteractiveSnip();
       }
     });
+
+    const COLOR_MAP = {
+      cyan: { accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.5)' },
+      white: { accent: '#ffffff', glow: 'rgba(255, 255, 255, 0.5)' },
+      red: { accent: '#ef4444', glow: 'rgba(239, 68, 68, 0.5)' },
+      orange: { accent: '#f97316', glow: 'rgba(249, 115, 22, 0.5)' },
+      purple: { accent: '#a855f7', glow: 'rgba(168, 85, 247, 0.5)' }
+    };
+
+    if (window.antiRecAPI && window.antiRecAPI.getSettings) {
+      window.antiRecAPI.getSettings().then(settings => {
+        if (settings && settings.themeColor && COLOR_MAP[settings.themeColor]) {
+          const t = COLOR_MAP[settings.themeColor];
+          document.documentElement.style.setProperty('--accent-color', t.accent);
+          document.documentElement.style.setProperty('--accent-glow', t.glow);
+        }
+      });
+    }
   </script>
 </body>
 </html>

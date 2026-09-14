@@ -16,7 +16,13 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const screenshot = require('screenshot-desktop');
-const { autoUpdater } = require('electron-updater');
+let autoUpdater = null;
+try {
+  const updaterModule = require('electron-updater');
+  autoUpdater = updaterModule.autoUpdater;
+} catch (e) {
+  console.warn('[AntiRecAI] Could not initialize electron autoUpdater:', e.message);
+}
 
 // Desktop User-Agents
 const CHROME_DESKTOP_UA =
@@ -56,6 +62,8 @@ const DEFAULT_SETTINGS = {
   customServiceUrl: '',
   customPrompt: 'Provide only a short, direct answer: ',
   snipMode: 'image', // 'image' | 'ocr'
+  themeColor: 'cyan', // 'cyan' | 'white' | 'red' | 'orange' | 'purple'
+  grayscale: false,
   opacity: 1.0,
   alwaysOnTop: true,
   antiObs: true,
@@ -443,10 +451,18 @@ function createWindow() {
 
   aiView.webContents.on('dom-ready', () => {
     applyScreenProtection(mainWindow);
+    if (userSettings.grayscale) {
+      grayscaleCssKey = null;
+      applyGrayscaleMode(true);
+    }
   });
 
   aiView.webContents.on('did-finish-load', () => {
     applyScreenProtection(mainWindow);
+    if (userSettings.grayscale) {
+      grayscaleCssKey = null;
+      applyGrayscaleMode(true);
+    }
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -665,6 +681,31 @@ function setGhostMode(enabled) {
 
 function toggleGhostMode() {
   setGhostMode(!isGhostMode);
+}
+
+// --- Grayscale Mode (Monochrome AI Page Filter) ---
+let grayscaleCssKey = null;
+
+async function applyGrayscaleMode(enabled) {
+  if (!aiView || !aiView.webContents) return;
+  const isEnabled = enabled !== undefined ? !!enabled : !!userSettings.grayscale;
+
+  try {
+    if (isEnabled) {
+      if (!grayscaleCssKey) {
+        grayscaleCssKey = await aiView.webContents.insertCSS('html, body { filter: grayscale(100%) !important; -webkit-filter: grayscale(100%) !important; }');
+        console.log('[AntiRecAI] Grayscale mode: ENABLED');
+      }
+    } else {
+      if (grayscaleCssKey) {
+        await aiView.webContents.removeInsertedCSS(grayscaleCssKey);
+        grayscaleCssKey = null;
+        console.log('[AntiRecAI] Grayscale mode: DISABLED');
+      }
+    }
+  } catch (e) {
+    console.warn('[AntiRecAI] Grayscale CSS error:', e.message);
+  }
 }
 
 // --- Interactive Drag Snipping Tool Overlay ---
@@ -1285,7 +1326,7 @@ function setupIpcHandlers() {
     const currentVersion = app.getVersion();
 
     // Use electron-updater if packaged (NSIS installer)
-    if (app.isPackaged) {
+    if (app.isPackaged && autoUpdater) {
       try {
         const result = await autoUpdater.checkForUpdates();
         const latestVersion = (result && result.updateInfo && result.updateInfo.version)
@@ -1342,8 +1383,8 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('app-download-update', async () => {
-    if (!app.isPackaged) {
-      return { success: false, error: 'Cannot download updates in unpackaged development mode.' };
+    if (!app.isPackaged || !autoUpdater) {
+      return { success: false, error: 'Updater not available in this mode.' };
     }
     try {
       console.log('[AntiRecAI Updater] Starting update download...');
@@ -1356,9 +1397,11 @@ function setupIpcHandlers() {
   });
 
   ipcMain.on('app-install-update', () => {
-    console.log('[AntiRecAI Updater] Quitting and installing update...');
-    isQuitting = true;
-    autoUpdater.quitAndInstall(false, true);
+    if (autoUpdater) {
+      console.log('[AntiRecAI Updater] Quitting and installing update...');
+      isQuitting = true;
+      autoUpdater.quitAndInstall(false, true);
+    }
   });
 
   ipcMain.on('app-open-external', (_event, url) => {
@@ -1407,6 +1450,12 @@ function setupIpcHandlers() {
     setupTray();
   });
 
+  ipcMain.on('app-set-grayscale', (_event, isEnabled) => {
+    userSettings.grayscale = !!isEnabled;
+    saveSettingsToDisk();
+    applyGrayscaleMode(isEnabled);
+  });
+
   ipcMain.on('app-set-ghost-mode', (_event, isEnabled) => {
     setGhostMode(isEnabled);
   });
@@ -1447,6 +1496,15 @@ function setupIpcHandlers() {
   ipcMain.on('app-settings-opened', (_event, isOpen) => {
     isSettingsModalOpen = !!isOpen;
     updateViewBounds();
+
+    if (isSettingsModalOpen) {
+      globalShortcut.unregisterAll();
+      stopMouseShortcutPoller();
+      console.log('[AntiRecAI] Settings modal open: Global shortcuts suspended for safe key remapping.');
+    } else {
+      registerShortcuts();
+      console.log('[AntiRecAI] Settings modal closed: Global shortcuts re-registered.');
+    }
   });
 
   ipcMain.on('app-finish-interactive-snip', (_event, bounds) => {

@@ -1,6 +1,6 @@
 {
   "name": "antirecai",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Stealth OBS-Excluded AI Overlay with 1-Click Screen Snip & Solve",
   "main": "main.js",
   "scripts": {

@@ -10,7 +10,12 @@
       --border-color: rgba(255, 255, 255, 0.08);
       --text-main: #e6edf3;
       --text-muted: #8b949e;
-      --accent-cyan: #38bdf8;
+      --accent-color: #38bdf8;
+      --accent-cyan: var(--accent-color);
+      --accent-bg-alpha: rgba(56, 189, 248, 0.15);
+      --accent-glow: rgba(56, 189, 248, 0.35);
+      --btn-primary-bg: #0284c7;
+      --btn-primary-hover: #0369a1;
       --accent-hover: rgba(255, 255, 255, 0.08);
       --danger-hover: #ef4444;
     }
@@ -117,12 +122,12 @@
     }
 
     .tab-btn.custom {
-      color: var(--accent-cyan);
+      color: var(--accent-color);
     }
 
     .tab-btn.custom.active {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: rgba(56, 189, 248, 0.4);
+      background: var(--accent-bg-alpha);
+      border-color: var(--accent-color);
     }
 
     /* --- Draggable Spacer in Middle --- */
@@ -165,8 +170,8 @@
     }
 
     .icon-btn.pin.active {
-      color: var(--accent-cyan);
-      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-color);
+      background: var(--accent-bg-alpha);
     }
 
     .icon-btn.ghost-btn {
@@ -175,9 +180,9 @@
 
     .icon-btn.ghost-btn.active {
       display: flex;
-      color: var(--accent-cyan);
-      background: rgba(56, 189, 248, 0.15);
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+      color: var(--accent-color);
+      background: var(--accent-bg-alpha);
+      box-shadow: 0 0 8px var(--accent-glow);
     }
 
     .icon-btn.close:hover {
@@ -520,8 +525,8 @@
 
     .pill-segment-btn.active {
       color: #fff;
-      background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+      background: var(--btn-primary-bg);
+      box-shadow: 0 0 10px var(--accent-glow);
       font-weight: 600;
     }
 
@@ -592,13 +597,13 @@
     }
 
     .btn.primary {
-      background: #0284c7;
-      border: 1px solid #0369a1;
+      background: var(--btn-primary-bg);
+      border: 1px solid var(--btn-primary-hover);
       color: #fff;
     }
 
     .btn.primary:hover {
-      background: #0369a1;
+      background: var(--btn-primary-hover);
     }
 
     .btn.warning {
@@ -609,6 +614,57 @@
 
     .btn.warning:hover {
       background: #a16207;
+    }
+
+    /* --- Color Picker Preset Swatches --- */
+    .color-presets-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .color-swatch-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      background: #1c1d22;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .color-swatch-preview {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    .color-swatch-btn:hover {
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .color-swatch-btn.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+    }
+
+    .color-swatch-btn.active::after {
+      content: '';
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #121316;
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
     }
   </style>
 </head>
@@ -728,6 +784,19 @@
       </div>
 
       <div class="setting-group">
+        <div class="switch-row">
+          <div>
+            <div class="setting-label" style="margin-bottom: 2px;">Grayscale Page Mode</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Render AI web pages in monochrome grayscale for stealth</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="setting-grayscale" onchange="toggleGrayscale(this.checked)" />
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-group">
         <div class="switch-row" style="gap: 10px;">
           <div style="flex: 1; min-width: 0;">
             <div class="setting-label" style="margin-bottom: 2px;">Snip Mode</div>
@@ -778,7 +847,7 @@
       </div>
 
       <div class="setting-group">
-        <label class="setting-label">Global Shortcuts (Keyboard or Mouse Buttons 3/4/5)</label>
+        <label class="setting-label">Global Shortcuts (Click to rebind • Press Delete to reset)</label>
         <div class="hotkey-grid">
           <div class="hotkey-row">
             <span class="hotkey-title">Toggle Window</span>
@@ -820,6 +889,30 @@
         <div style="display: flex; gap: 6px;">
           <input type="text" id="setting-custom-url" class="setting-input" style="flex: 1;" placeholder="https://..." />
           <button class="btn primary" style="flex: none; padding: 0 14px;" onclick="loadCustomUrl()">Go</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="setting-label" style="margin-bottom: 0;">UI Accent Theme Color</label>
+          <span id="theme-color-label" style="font-size: 11px; font-weight: 600; color: var(--accent-color); text-transform: capitalize;">Cyan</span>
+        </div>
+        <div class="color-presets-row" id="color-presets-row">
+          <button type="button" class="color-swatch-btn cyan active" id="swatch-cyan" data-theme="cyan" title="Cyan (Default)" onclick="selectThemeColor('cyan')">
+            <span class="color-swatch-preview" style="background: #38bdf8;"></span>
+          </button>
+          <button type="button" class="color-swatch-btn white" id="swatch-white" data-theme="white" title="White" onclick="selectThemeColor('white')">
+            <span class="color-swatch-preview" style="background: #ffffff;"></span>
+          </button>
+          <button type="button" class="color-swatch-btn red" id="swatch-red" data-theme="red" title="Red" onclick="selectThemeColor('red')">
+            <span class="color-swatch-preview" style="background: #ef4444;"></span>
+          </button>
+          <button type="button" class="color-swatch-btn orange" id="swatch-orange" data-theme="orange" title="Orange" onclick="selectThemeColor('orange')">
+            <span class="color-swatch-preview" style="background: #f97316;"></span>
+          </button>
+          <button type="button" class="color-swatch-btn purple" id="swatch-purple" data-theme="purple" title="Purple" onclick="selectThemeColor('purple')">
+            <span class="color-swatch-preview" style="background: #a855f7;"></span>
+          </button>
         </div>
       </div>
     </div>
@@ -984,6 +1077,12 @@
       }
     }
 
+    function toggleGrayscale(checked) {
+      if (window.antiRecAPI && window.antiRecAPI.setGrayscale) {
+        window.antiRecAPI.setGrayscale(checked);
+      }
+    }
+
     let activeRecorderInput = null;
 
     function setupHotkeyRecorder(inputId, defaultAccelerator) {
@@ -993,7 +1092,7 @@
       el.addEventListener('focus', () => {
         activeRecorderInput = el;
         el.dataset.prevVal = el.value;
-        el.value = 'Press key or mouse button...';
+        el.value = 'Press key/mouse (Delete to reset)...';
         el.classList.add('recording');
       });
 
@@ -1003,7 +1102,7 @@
             activeRecorderInput = null;
           }
           el.classList.remove('recording');
-          if (el.value === 'Press key or mouse button...') {
+          if (el.value.startsWith('Press key')) {
             el.value = el.dataset.prevVal || defaultAccelerator.replace('CommandOrControl', 'Ctrl');
           }
         }, 120);
@@ -1012,6 +1111,16 @@
       el.addEventListener('keydown', (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Reset to original default accelerator if Delete or Backspace is pressed without modifiers
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+          const defaultDisplay = defaultAccelerator.replace('CommandOrControl', 'Ctrl');
+          el.value = defaultDisplay;
+          el.dataset.accelerator = defaultAccelerator;
+          activeRecorderInput = null;
+          el.blur();
+          return;
+        }
 
         // Ignore modifier-only key presses
         if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
@@ -1119,6 +1228,70 @@
       }
     }
 
+    const COLOR_THEMES = {
+      cyan: {
+        accent: '#38bdf8',
+        bgAlpha: 'rgba(56, 189, 248, 0.15)',
+        glow: 'rgba(56, 189, 248, 0.35)',
+        btnPrimary: '#0284c7',
+        btnHover: '#0369a1'
+      },
+      white: {
+        accent: '#ffffff',
+        bgAlpha: 'rgba(255, 255, 255, 0.15)',
+        glow: 'rgba(255, 255, 255, 0.35)',
+        btnPrimary: '#475569',
+        btnHover: '#64748b'
+      },
+      red: {
+        accent: '#ef4444',
+        bgAlpha: 'rgba(239, 68, 68, 0.15)',
+        glow: 'rgba(239, 68, 68, 0.35)',
+        btnPrimary: '#dc2626',
+        btnHover: '#b91c1c'
+      },
+      orange: {
+        accent: '#f97316',
+        bgAlpha: 'rgba(249, 115, 22, 0.15)',
+        glow: 'rgba(249, 115, 22, 0.35)',
+        btnPrimary: '#ea580c',
+        btnHover: '#c2410c'
+      },
+      purple: {
+        accent: '#a855f7',
+        bgAlpha: 'rgba(168, 85, 247, 0.15)',
+        glow: 'rgba(168, 85, 247, 0.35)',
+        btnPrimary: '#9333ea',
+        btnHover: '#7e22ce'
+      }
+    };
+
+    let currentThemeColor = 'cyan';
+
+    function selectThemeColor(themeKey) {
+      if (!COLOR_THEMES[themeKey]) themeKey = 'cyan';
+      currentThemeColor = themeKey;
+
+      const theme = COLOR_THEMES[themeKey];
+      const root = document.documentElement;
+      root.style.setProperty('--accent-color', theme.accent);
+      root.style.setProperty('--accent-cyan', theme.accent);
+      root.style.setProperty('--accent-bg-alpha', theme.bgAlpha);
+      root.style.setProperty('--accent-glow', theme.glow);
+      root.style.setProperty('--btn-primary-bg', theme.btnPrimary);
+      root.style.setProperty('--btn-primary-hover', theme.btnHover);
+
+      const label = document.getElementById('theme-color-label');
+      if (label) {
+        label.innerText = themeKey;
+        label.style.color = theme.accent;
+      }
+
+      document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === themeKey);
+      });
+    }
+
     function saveSettings() {
       const prompt = document.getElementById('setting-prompt').value;
       const customUrl = document.getElementById('setting-custom-url').value.trim();
@@ -1132,9 +1305,13 @@
       const resetAcc = document.getElementById('hotkey-reset').dataset.accelerator || 'CommandOrControl+Alt+R';
       const exitAcc = document.getElementById('hotkey-exit').dataset.accelerator || 'CommandOrControl+Shift+End';
 
+      const isGrayscale = document.getElementById('setting-grayscale') ? document.getElementById('setting-grayscale').checked : false;
+
       const payload = {
         customPrompt: prompt,
         snipMode: currentSnipMode,
+        themeColor: currentThemeColor,
+        grayscale: isGrayscale,
         hotkeys: {
           toggle: toggleAcc,
           snip: snipAcc,
@@ -1219,6 +1396,10 @@
         const obsCheck = document.getElementById('setting-antiobs');
         if (obsCheck) obsCheck.checked = settings.antiObs;
       }
+      if (typeof settings.grayscale === 'boolean') {
+        const grayCheck = document.getElementById('setting-grayscale');
+        if (grayCheck) grayCheck.checked = settings.grayscale;
+      }
       if (settings.snipMode) {
         setSnipMode(settings.snipMode);
       }
@@ -1268,6 +1449,11 @@
           el.dataset.accelerator = settings.hotkeys.exit;
           el.value = settings.hotkeys.exit.replace('CommandOrControl', 'Ctrl');
         }
+      }
+      if (settings.themeColor) {
+        selectThemeColor(settings.themeColor);
+      } else {
+        selectThemeColor('cyan');
       }
       if (settings.activeSite) {
         currentSite = settings.activeSite;
