@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AntiRecAI Snip Overlay</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.15);
+      cursor: crosshair;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #selection-box {
+      position: absolute;
+      display: none;
+      border: 2px solid #38bdf8;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 12px rgba(56, 189, 248, 0.5);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #size-badge {
+      position: absolute;
+      bottom: -28px;
+      left: 0;
+      background: #121316;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+    }
+
+    #tip-banner {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(18, 19, 22, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e6edf3;
+      font-size: 12.5px;
+      padding: 8px 18px;
+      border-radius: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 20;
+      backdrop-filter: blur(8px);
+      letter-spacing: 0.2px;
+    }
+
+    #tip-banner kbd {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: #38bdf8;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+  <div id="tip-banner">
+    <span>Drag to select snip area</span>
+    <span>•</span>
+    <span><kbd>ESC</kbd> or <kbd>Right Click</kbd> to cancel</span>
+  </div>
+
+  <div id="selection-box">
+    <div id="size-badge">0 × 0</div>
+  </div>
+
+  <script>
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    const box = document.getElementById('selection-box');
+    const badge = document.getElementById('size-badge');
+
+    window.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // Left Click
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        box.style.left = startX + 'px';
+        box.style.top = startY + 'px';
+        box.style.width = '0px';
+        box.style.height = '0px';
+        box.style.display = 'block';
+
+        const tip = document.getElementById('tip-banner');
+        if (tip) tip.style.display = 'none';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const currentX = e.clientX;
+      const currentY = e.clientY;
+
+      const left = Math.min(startX, currentX);
+      const top = Math.min(startY, currentY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+
+      box.style.left = left + 'px';
+      box.style.top = top + 'px';
+      box.style.width = width + 'px';
+      box.style.height = height + 'px';
+
+      badge.innerText = `${Math.round(width)} × ${Math.round(height)}`;
+
+      // Position badge inside if near bottom of screen
+      if (top + height + 32 > window.innerHeight) {
+        badge.style.bottom = 'auto';
+        badge.style.top = '6px';
+      } else {
+        badge.style.top = 'auto';
+        badge.style.bottom = '-28px';
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (isDragging && e.button === 0) {
+        isDragging = false;
+        const currentX = e.clientX;
+        const currentY = e.clientY;
+
+        const left = Math.min(startX, currentX);
+        const top = Math.min(startY, currentY);
+        const width = Math.abs(currentX - startX);
+        const height = Math.abs(currentY - startY);
+
+        box.style.display = 'none';
+
+        if (width >= 10 && height >= 10) {
+          if (window.antiRecAPI && window.antiRecAPI.finishInteractiveSnip) {
+            window.antiRecAPI.finishInteractiveSnip({
+              x: left,
+              y: top,
+              width: width,
+              height: height
+            });
+          }
+        } else {
+          // Click without drag or too small, cancel
+          if (window.antiRecAPI && window.antiRecAPI.cancelInteractiveSnip) {
+            window.antiRecAPI.cancelInteractiveSnip();
+          }
+        }
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (window.antiRecAPI && window.antiRecAPI.cancelInteractiveSnip) {
+          window.antiRecAPI.cancelInteractiveSnip();
+        }
+      }
+    });
+
+    window.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (window.antiRecAPI && window.antiRecAPI.cancelInteractiveSnip) {
+        window.antiRecAPI.cancelInteractiveSnip();
+      }
+    });
+  </script>
+</body>
+</html>

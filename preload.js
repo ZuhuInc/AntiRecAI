@@ -24,5 +24,7 @@ contextBridge.exposeInMainWorld('antiRecAPI', {
   onUpdaterProgress: (callback) => ipcRenderer.on('updater-progress', (_event, data) => callback(data)),
   setGhostMode: (val) => ipcRenderer.send('app-set-ghost-mode', val),
   toggleGhostMode: () => ipcRenderer.send('app-toggle-ghost-mode'),
-  onGhostModeChanged: (callback) => ipcRenderer.on('ghost-mode-changed', (_event, isGhost) => callback(isGhost))
+  onGhostModeChanged: (callback) => ipcRenderer.on('ghost-mode-changed', (_event, isGhost) => callback(isGhost)),
+  finishInteractiveSnip: (bounds) => ipcRenderer.send('app-finish-interactive-snip', bounds),
+  cancelInteractiveSnip: () => ipcRenderer.send('app-cancel-interactive-snip')
 });

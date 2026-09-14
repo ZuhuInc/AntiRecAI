@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS = {
   hotkeys: {
     toggle: 'CommandOrControl+Shift+H',
     snip: 'CommandOrControl+Shift+S',
+    snipInteractive: 'CommandOrControl+Alt+S',
     ghost: 'CommandOrControl+Alt+G',
     setPoint1: 'CommandOrControl+1',
     setPoint2: 'CommandOrControl+2',
@@ -511,6 +512,7 @@ function setupTray() {
   const hotkeys = userSettings.hotkeys || DEFAULT_SETTINGS.hotkeys;
   const toggleLabel = (hotkeys.toggle || 'Ctrl+Shift+H').replace('CommandOrControl', 'Ctrl');
   const snipLabel = (hotkeys.snip || 'Ctrl+Shift+S').replace('CommandOrControl', 'Ctrl');
+  const snipInteractiveLabel = (hotkeys.snipInteractive || 'Ctrl+Alt+S').replace('CommandOrControl', 'Ctrl');
   const ghostLabel = (hotkeys.ghost || 'Ctrl+Alt+G').replace('CommandOrControl', 'Ctrl');
   const p1Label = (hotkeys.setPoint1 || 'Ctrl+1').replace('CommandOrControl', 'Ctrl');
   const p2Label = (hotkeys.setPoint2 || 'Ctrl+2').replace('CommandOrControl', 'Ctrl');
@@ -523,7 +525,11 @@ function setupTray() {
       click: () => toggleWindowVisibility()
     },
     {
-      label: `Capture & Query (${snipLabel})`,
+      label: `Interactive Snip (${snipInteractiveLabel})`,
+      click: () => startInteractiveSnip()
+    },
+    {
+      label: `Capture & Query Full/Region (${snipLabel})`,
       click: () => triggerScreenshotWorkflow()
     },
     {
@@ -661,6 +667,63 @@ function toggleGhostMode() {
   setGhostMode(!isGhostMode);
 }
 
+// --- Interactive Drag Snipping Tool Overlay ---
+let snipOverlayWindow = null;
+let snipTargetDisplay = null;
+
+function startInteractiveSnip() {
+  if (snipOverlayWindow && !snipOverlayWindow.isDestroyed()) {
+    snipOverlayWindow.focus();
+    return;
+  }
+
+  const cursor = screen.getCursorScreenPoint();
+  snipTargetDisplay = screen.getDisplayNearestPoint(cursor) || screen.getPrimaryDisplay();
+  const bounds = snipTargetDisplay.bounds;
+
+  snipOverlayWindow = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    hasShadow: false,
+    fullscreenable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  snipOverlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  applyScreenProtection(snipOverlayWindow);
+
+  snipOverlayWindow.loadFile(path.join(__dirname, 'snipper.html'));
+
+  snipOverlayWindow.once('ready-to-show', () => {
+    applyScreenProtection(snipOverlayWindow);
+    snipOverlayWindow.show();
+    snipOverlayWindow.focus();
+  });
+
+  snipOverlayWindow.on('closed', () => {
+    snipOverlayWindow = null;
+  });
+}
+
+function closeInteractiveSnip() {
+  if (snipOverlayWindow && !snipOverlayWindow.isDestroyed()) {
+    snipOverlayWindow.close();
+  }
+  snipOverlayWindow = null;
+}
+
 // --- Stealth Region Coordinates ---
 let savedRegion = {
   p1: null,
@@ -685,22 +748,23 @@ function resetRegion() {
 }
 
 /**
- * Multi-Monitor Aware Screenshot Capture & Dynamic Box Cropper
+ * DPI-Aware Multi-Monitor Screenshot Capture & Dynamic Box Cropper
  */
-async function captureTargetDisplayOrRegion() {
-  let displays = [];
-  try {
-    displays = await screenshot.listDisplays();
-  } catch (err) {
-    console.warn('[AntiRecAI] Failed to list displays:', err.message);
-  }
-
+async function captureTargetDisplayOrRegion(customCropBox = null, customTargetDisplay = null) {
+  const electronDisplays = screen.getAllDisplays();
   const cursor = screen.getCursorScreenPoint();
-  let targetDisplay = null;
+  let targetElectronDisplay = customTargetDisplay || null;
   let hasValidRegion = false;
-  let cropBox = null;
+  let cropBox = customCropBox || null;
 
-  if (savedRegion.p1 && savedRegion.p2) {
+  if (cropBox) {
+    hasValidRegion = true;
+    if (!targetElectronDisplay) {
+      const midX = (cropBox.minX + cropBox.maxX) / 2;
+      const midY = (cropBox.minY + cropBox.maxY) / 2;
+      targetElectronDisplay = screen.getDisplayNearestPoint({ x: midX, y: midY });
+    }
+  } else if (savedRegion.p1 && savedRegion.p2) {
     const minX = Math.min(savedRegion.p1.x, savedRegion.p2.x);
     const maxX = Math.max(savedRegion.p1.x, savedRegion.p2.x);
     const minY = Math.min(savedRegion.p1.y, savedRegion.p2.y);
@@ -709,9 +773,7 @@ async function captureTargetDisplayOrRegion() {
     const midX = (minX + maxX) / 2;
     const midY = (minY + maxY) / 2;
 
-    if (displays.length > 0) {
-      targetDisplay = displays.find(d => midX >= d.left && midX < d.right && midY >= d.top && midY < d.bottom) || displays[0];
-    }
+    targetElectronDisplay = screen.getDisplayNearestPoint({ x: midX, y: midY });
 
     if (maxX - minX > 5 && maxY - minY > 5) {
       hasValidRegion = true;
@@ -720,28 +782,51 @@ async function captureTargetDisplayOrRegion() {
   }
 
   // Fallback to active display where cursor is
-  if (!targetDisplay && displays.length > 0) {
-    targetDisplay = displays.find(d => cursor.x >= d.left && cursor.x < d.right && cursor.y >= d.top && cursor.y < d.bottom) || displays[0];
+  if (!targetElectronDisplay) {
+    targetElectronDisplay = screen.getDisplayNearestPoint(cursor) || screen.getPrimaryDisplay();
   }
 
-  const captureOpts = targetDisplay ? { screen: targetDisplay.id, format: 'png' } : { format: 'png' };
+  // Identify matching display in screenshot-desktop
+  let screenshotDisplays = [];
+  try {
+    screenshotDisplays = await screenshot.listDisplays();
+  } catch (err) {
+    console.warn('[AntiRecAI] Failed to list displays:', err.message);
+  }
+
+  let targetScreenshotDisplay = null;
+  if (screenshotDisplays.length > 0) {
+    const displayIndex = electronDisplays.findIndex(d => d.id === targetElectronDisplay.id);
+    if (displayIndex >= 0 && displayIndex < screenshotDisplays.length) {
+      targetScreenshotDisplay = screenshotDisplays[displayIndex];
+    } else {
+      targetScreenshotDisplay = screenshotDisplays[0];
+    }
+  }
+
+  const captureOpts = targetScreenshotDisplay ? { screen: targetScreenshotDisplay.id, format: 'png' } : { format: 'png' };
   const imgBuffer = await screenshot(captureOpts);
   let image = nativeImage.createFromBuffer(imgBuffer);
 
-  if (hasValidRegion && cropBox && targetDisplay) {
-    const imgSize = image.getSize();
-    const scaleX = imgSize.width / targetDisplay.width;
-    const scaleY = imgSize.height / targetDisplay.height;
+  if (hasValidRegion && cropBox && targetElectronDisplay) {
+    const imgSize = image.getSize(); // Physical pixels of captured image
+    const dispBounds = targetElectronDisplay.bounds; // Logical DIP bounds from Electron
 
-    const localMinX = Math.max(0, cropBox.minX - targetDisplay.left);
-    const localMinY = Math.max(0, cropBox.minY - targetDisplay.top);
-    const localMaxX = Math.min(targetDisplay.width, cropBox.maxX - targetDisplay.left);
-    const localMaxY = Math.min(targetDisplay.height, cropBox.maxY - targetDisplay.top);
+    // Calculate exact physical-to-logical DPI scaling ratio
+    const ratioX = imgSize.width / Math.max(1, dispBounds.width);
+    const ratioY = imgSize.height / Math.max(1, dispBounds.height);
 
-    const cropX = Math.max(0, Math.round(localMinX * scaleX));
-    const cropY = Math.max(0, Math.round(localMinY * scaleY));
-    const cropW = Math.round((localMaxX - localMinX) * scaleX);
-    const cropH = Math.round((localMaxY - localMinY) * scaleY);
+    // Convert logical coordinates within target display
+    const localLogicalMinX = Math.max(0, Math.min(dispBounds.width, cropBox.minX - dispBounds.x));
+    const localLogicalMinY = Math.max(0, Math.min(dispBounds.height, cropBox.minY - dispBounds.y));
+    const localLogicalMaxX = Math.max(0, Math.min(dispBounds.width, cropBox.maxX - dispBounds.x));
+    const localLogicalMaxY = Math.max(0, Math.min(dispBounds.height, cropBox.maxY - dispBounds.y));
+
+    // Scale to physical image pixels
+    const cropX = Math.max(0, Math.round(localLogicalMinX * ratioX));
+    const cropY = Math.max(0, Math.round(localLogicalMinY * ratioY));
+    const cropW = Math.round((localLogicalMaxX - localLogicalMinX) * ratioX);
+    const cropH = Math.round((localLogicalMaxY - localLogicalMinY) * ratioY);
 
     if (cropW > 10 && cropH > 10 && cropX + cropW <= imgSize.width && cropY + cropH <= imgSize.height) {
       image = image.crop({
@@ -750,10 +835,10 @@ async function captureTargetDisplayOrRegion() {
         width: cropW,
         height: cropH
       });
-      console.log(`[AntiRecAI] Cropped region screenshot: ${cropW}x${cropH} (${targetDisplay.name || targetDisplay.id})`);
+      console.log(`[AntiRecAI] Cropped DPI-aware region: ${cropW}x${cropH} (Scale Ratio: ${ratioX.toFixed(2)}x, Display: ${targetElectronDisplay.id})`);
     }
   } else {
-    console.log(`[AntiRecAI] Captured full display (${targetDisplay ? (targetDisplay.name || targetDisplay.id) : 'primary'})`);
+    console.log(`[AntiRecAI] Captured full display (${targetElectronDisplay ? targetElectronDisplay.id : 'primary'})`);
   }
 
   return image;
@@ -833,10 +918,10 @@ function performWindowsOcr(pngBuffer) {
 /**
  * Universal Multi-AI Prompt & Screenshot Injector
  */
-async function triggerScreenshotWorkflow() {
+async function triggerScreenshotWorkflow(customCropBox = null, customTargetDisplay = null) {
   try {
     console.log('[AntiRecAI] Capturing screen in memory...');
-    const image = await captureTargetDisplayOrRegion();
+    const image = await captureTargetDisplayOrRegion(customCropBox, customTargetDisplay);
     const isOcrMode = userSettings.snipMode === 'ocr';
 
     if (isOcrMode) {
@@ -1126,6 +1211,7 @@ function registerShortcuts() {
   const shortcutDefs = [
     { id: 'toggle', key: toggleKey, action: () => toggleWindowVisibility() },
     { id: 'snip', key: snipKey, action: () => triggerScreenshotWorkflow() },
+    { id: 'snipInteractive', key: hotkeys.snipInteractive || 'CommandOrControl+Alt+S', action: () => startInteractiveSnip() },
     { id: 'ghost', key: hotkeys.ghost || 'CommandOrControl+Alt+G', action: () => toggleGhostMode() },
     { id: 'setPoint1', key: hotkeys.setPoint1 || 'CommandOrControl+1', action: () => setRegionPoint(1) },
     { id: 'setPoint2', key: hotkeys.setPoint2 || 'CommandOrControl+2', action: () => setRegionPoint(2) },
@@ -1361,6 +1447,23 @@ function setupIpcHandlers() {
   ipcMain.on('app-settings-opened', (_event, isOpen) => {
     isSettingsModalOpen = !!isOpen;
     updateViewBounds();
+  });
+
+  ipcMain.on('app-finish-interactive-snip', (_event, bounds) => {
+    const disp = snipTargetDisplay || screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    closeInteractiveSnip();
+
+    if (bounds && bounds.width >= 10 && bounds.height >= 10) {
+      const minX = disp.bounds.x + bounds.x;
+      const minY = disp.bounds.y + bounds.y;
+      const maxX = minX + bounds.width;
+      const maxY = minY + bounds.height;
+      triggerScreenshotWorkflow({ minX, minY, maxX, maxY }, disp);
+    }
+  });
+
+  ipcMain.on('app-cancel-interactive-snip', () => {
+    closeInteractiveSnip();
   });
 }
 

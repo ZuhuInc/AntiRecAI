@@ -785,7 +785,11 @@
             <input type="text" class="hotkey-input" id="hotkey-toggle" readonly value="Ctrl+Shift+H" data-accelerator="CommandOrControl+Shift+H" />
           </div>
           <div class="hotkey-row">
-            <span class="hotkey-title">Snip & Solve</span>
+            <span class="hotkey-title">Interactive Snip (Drag)</span>
+            <input type="text" class="hotkey-input" id="hotkey-snip-interactive" readonly value="Ctrl+Alt+S" data-accelerator="CommandOrControl+Alt+S" />
+          </div>
+          <div class="hotkey-row">
+            <span class="hotkey-title">Snip & Solve (Full/Region)</span>
             <input type="text" class="hotkey-input" id="hotkey-snip" readonly value="Ctrl+Shift+S" data-accelerator="CommandOrControl+Shift+S" />
           </div>
           <div class="hotkey-row">
@@ -831,8 +835,8 @@
           </svg>
         </button>
         <strong>Stealth Screen Protection:</strong> Active (WDA_EXCLUDEFROMCAPTURE)<br>
-        • <strong>Stealth Region Snip:</strong> Hover corners & press <strong>Ctrl+1</strong> / <strong>Ctrl+2</strong> to lock snip area silently. <strong>Ctrl+Alt+R</strong> resets.<br>
-        • <strong>Multi-Monitor:</strong> Snips whichever monitor your cursor or region rests on.<br>
+        • <strong>Interactive Snip:</strong> Press <strong>Ctrl+Alt+S</strong> to drag and snip any region instantly.<br>
+        • <strong>Stealth Region Snip:</strong> Hover corners & press <strong>Ctrl+1</strong> / <strong>Ctrl+2</strong> to lock silently. <strong>Ctrl+Alt+R</strong> resets.<br>
         • <strong>Emergency Exit:</strong> Terminate AntiRecAI instantly anytime.
       </div>
 
@@ -1120,6 +1124,7 @@
       const customUrl = document.getElementById('setting-custom-url').value.trim();
 
       const toggleAcc = document.getElementById('hotkey-toggle').dataset.accelerator || 'CommandOrControl+Shift+H';
+      const snipInteractiveAcc = (document.getElementById('hotkey-snip-interactive') && document.getElementById('hotkey-snip-interactive').dataset.accelerator) || 'CommandOrControl+Alt+S';
       const snipAcc = document.getElementById('hotkey-snip').dataset.accelerator || 'CommandOrControl+Shift+S';
       const ghostAcc = document.getElementById('hotkey-ghost').dataset.accelerator || 'CommandOrControl+Alt+G';
       const p1Acc = document.getElementById('hotkey-p1').dataset.accelerator || 'CommandOrControl+1';
@@ -1133,6 +1138,7 @@
         hotkeys: {
           toggle: toggleAcc,
           snip: snipAcc,
+          snipInteractive: snipInteractiveAcc,
           ghost: ghostAcc,
           setPoint1: p1Acc,
           setPoint2: p2Acc,
@@ -1225,6 +1231,13 @@
           el.dataset.accelerator = settings.hotkeys.toggle;
           el.value = settings.hotkeys.toggle.replace('CommandOrControl', 'Ctrl');
         }
+        if (settings.hotkeys.snipInteractive) {
+          const el = document.getElementById('hotkey-snip-interactive');
+          if (el) {
+            el.dataset.accelerator = settings.hotkeys.snipInteractive;
+            el.value = settings.hotkeys.snipInteractive.replace('CommandOrControl', 'Ctrl');
+          }
+        }
         if (settings.hotkeys.snip) {
           const el = document.getElementById('hotkey-snip');
           el.dataset.accelerator = settings.hotkeys.snip;
@@ -1266,6 +1279,7 @@
 
     // Initialize keybind recorders
     setupHotkeyRecorder('hotkey-toggle', 'CommandOrControl+Shift+H');
+    setupHotkeyRecorder('hotkey-snip-interactive', 'CommandOrControl+Alt+S');
     setupHotkeyRecorder('hotkey-snip', 'CommandOrControl+Shift+S');
     setupHotkeyRecorder('hotkey-ghost', 'CommandOrControl+Alt+G');
     setupHotkeyRecorder('hotkey-p1', 'CommandOrControl+1');
